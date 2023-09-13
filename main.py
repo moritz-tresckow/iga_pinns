@@ -31,6 +31,21 @@ def interface_function2d(nd, endpositive, endzero, nn):
         fret = lambda ws, x: (nn(ws, x[...,0][...,None]).flatten()*faux(x[...,1]))[...,None]
     return fret
 
+
+def interface_function2d_inv(nd, endpositive, endzero, nn):
+    # Interface function whether the interface is in x or in y direction
+    # Connect the correct basis functions
+    # NN is defined on the boundary so only takes in 1 dimensional inputs
+
+    faux = lambda x: ((x-endzero)**1/(endpositive-endzero)**1)
+    if nd == 0: # NN(y)*(x-endzero)/(endpositive - endzero)
+        fret = lambda ws, x: (nn(ws, -1 * x[...,1][...,None]).flatten()*faux(x[...,0]))[...,None]
+    else: # NN(x)*(y-endzero)/(endpositive - endzero)
+        fret = lambda ws, x: (nn(ws, -1 * x[...,0][...,None]).flatten()*faux(x[...,1]))[...,None]
+    return fret
+
+
+
 def jump_function2d(nd, pos_y, nn):
     # Function compactly supported on the patch
     faux = lambda x: jnp.exp(-4.0*jnp.abs(x-pos_y))
@@ -39,6 +54,7 @@ def jump_function2d(nd, pos_y, nn):
     else: # fret(x,y) = NN(x)*exp(-4*|y-y_pos|)
         fret = lambda ws, x: (nn(ws, x[...,0][...,None]).flatten()*faux(x[...,1]))[...,None]
     return fret
+
 
 def ExpHat(x, scale = 0.1):
     # Interface function implementing continuity across patches
@@ -176,10 +192,10 @@ class Model(src.PINN):
         self.interface74 = interface_function2d(1, -1.0, 1.0,self.neural_networks['u47'])
         
         #------------------------------------------------------------------------------#
-        # Air1 -> Air2   |   NN(x)*1/2(y+1)   => (1, 1, -1) 
+        # Air1 -> Air2   |   NN(x)* 1/2(y+1)   => (1, 1, -1) 
         self.interface56 = interface_function2d(1, 1.0, -1.0,self.neural_networks['u56'])
         # Air2 -> Air1   |   NN(x)* 1/2(y+1)  => (1, 1, -1) 
-        self.interface65 = interface_function2d(1, 1.0, -1.0,self.neural_networks['u56'])
+        self.interface65 = interface_function2d_inv(1, 1.0, -1.0,self.neural_networks['u56'])
         
         #------------------------------------------------------------------------------#
         # Air2 -> Air3   |   NN(y)*1/2(x+1)   => (0, 1, -1) 
@@ -281,8 +297,7 @@ class Model(src.PINN):
         w156 = ws['u156']*( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha 
         w1268 = ws['u1268']*( (x[...,0] + 1) * (1 - x[...,1]) )[...,None]**alpha 
         
-        w =   w12 + w15 + w16 # w156 #+ w1268 +  
-
+        w =   w12 + w15 + w16 + w156 + w1268   
         return u * v + w
 
     def solution2(self, ws, x):
@@ -320,14 +335,14 @@ class Model(src.PINN):
         # w23 = NN_{23}(x)*-1/2(y-1) * (1-x)(1+x)              |   
         
         w1268 = ws['u1268'] * ( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha
-        #w156  =  ws['u156'] * ( (x[...,0] + 1) * (1 - x[...,1]) )[...,None]**alpha
+        w238  =  ws['u238'] * ( (x[...,0] + 1) * (1 - x[...,1]) )[...,None]**alpha
         
         # Function coinciding on the three subdomains
         #------------------------------------------------------------------------------#
         # w1268 = u_{1268} * ((x+1)*(y+1))^2   
         # w156  = u_{156} * ((x+1)*(1-y))^2   
 
-        w = w28 + w21+ w23 #+ w156 #+ w1268 
+        w = w28 + w21 + w23 + w1268 + w238
         return u * v + w
     
     def solution3(self, ws, x):
@@ -358,7 +373,7 @@ class Model(src.PINN):
         # w238  = u_{238}  * ((1-x)*(y+1))^2    |
         # w3478 = u_{3478} * ((x+1)*(y+1))^2   |
 
-        w = w32  + w34 + w38 #+ w238 + w3478
+        w = w32  + w34 + w38 + w238 + w3478
         return u * v + w
     
     def solution4(self, ws, x):
@@ -385,7 +400,7 @@ class Model(src.PINN):
         #------------------------------------------------------------------------------#
         # w3478 = u_{3478} * ((1-x)*(y+1))^2   |
 
-        w = w47 + w43 #+ w3478
+        w = w47 + w43 + w3478
         return u * v + w
 
 
@@ -400,6 +415,7 @@ class Model(src.PINN):
         v = ((1 - x[...,1]) * (x[...,1] + 1) * (1 - x[...,0]))[...,None]
         
         w56 = self.interface56(ws['u56'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
+
         w51 = self.interface51(ws['u15'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
 
         # Interface functions for Air1
@@ -415,8 +431,14 @@ class Model(src.PINN):
         #------------------------------------------------------------------------------#
         # w156 = u_{156} * ((x+1)*(y+1))^2   |
 
-        w =  w56 + w51 # w156 #+ w567 w56 + w51 +
+        w = w51 + w56 + w156
         return u * v + w
+        
+
+    def solution5a(self, ws, x):
+        w56 = self.interface56(ws['u56'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
+        return w56
+    
     
     
     def solution6(self, ws, x):
@@ -431,11 +453,11 @@ class Model(src.PINN):
         
         # Interface functions for IronYoke Right Middle 
         #------------------------------------------------------------------------------#
-        w65 = self.interface65(ws['u56'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
-        #w65 = self.interface65(ws['u56'],x) * (x[...,0] + 1)[...,None]
+        w65 =  self.interface65(ws['u56'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
+           #w65 = self.interface65(ws['u56'],x) * (x[...,0] + 1)[...,None]
 
         w67 = self.interface67(ws['u67'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
-        #w67 = self.interface67(ws['u67'],x) * ((x[...,1] + 1) * (x[...,1] - 1))[...,None]
+            #w67 = self.interface67(ws['u67'],x) * ((x[...,1] + 1) * (x[...,1] - 1))[...,None]
 
         w68 = self.interface68(ws['u68'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
         w61 = self.interface61(ws['u16'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
@@ -448,7 +470,7 @@ class Model(src.PINN):
         # Function coinciding on multiple subdomains
         #------------------------------------------------------------------------------#
         w567  = ws['u567']   *  ( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha
-        w1268  = ws['u1268'] *  ( (1 - x[...,0]) * (1 - x[...,1]) )[...,None]**alpha
+        w1268 = ws['u1268'] *  ( (1 - x[...,0]) * (1 - x[...,1]) )[...,None]**alpha
         w678  = ws['u678']   *  ( (x[...,0] + 1) * (1 - x[...,1]) )[...,None]**alpha
         # Original w156  = ws['u156']   *  ( (1 - x[...,0]) * (x[...,1] + 1) )[...,None]**alpha
         w156  = ws['u156']   *  ((1 - x[...,0]) * (x[...,1] + 1) )[...,None]**alpha
@@ -457,8 +479,13 @@ class Model(src.PINN):
         # w3467 = u_{3467} * ((1-x)*(1-y))^2    |
         # w678  = u_{678}  * ((1-x)*(y+1))^2    |
 
-        w = w65 + w67 + w68 + w61 #+ w156#+ w1268 + w678  
+        w = w65 + w67 + w68 + w61 + w156 + w1268 + w678 
         return u * v + w
+
+    def solution6a(self, ws, x):
+        w65 =  self.interface65(ws['u56'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
+        return w65
+
 
     def solution7(self, ws, x):
         # 7. Domain: Air3
@@ -495,7 +522,7 @@ class Model(src.PINN):
         # w3478 = u_{3478} * ((1-x)*(1-y))^2    |
         # w678  = u_{678}  * ((1-x)*(y+1))^2    |
 
-        w = w76 + w74 + w78 # + w3478 + w678 
+        w = w76 + w74 + w78 + w3478 + w678 
         return u * v + w
 
 
@@ -550,7 +577,7 @@ class Model(src.PINN):
         # w_238  = u_{238}  * ((1-x)*(1-y))^2   | 
         # w_1268 = u_{1268} * ((1-x)*(y+1))^2   |  
 
-        w =  w82 + w87 + w86 + w83 #+ w678 + w3478 + w238 + w1268
+        w =  w82 + w87 + w86 + w83 + w1268 + w238 + w678 + w3478
         return u * v + w
         
 

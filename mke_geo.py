@@ -262,10 +262,7 @@ def plot_bndr(model, weights, geoms):
 
         ys_right = np.concatenate((one_vec, -1 * ys), axis = 1) 
 
-        print('Top ', ys_top[0:10,:])
-        print('Right ', ys_right[0:10,:])
-        print('Bottom ', ys_bottom[0:10,:])
-        print('Left ', ys_left[0:10,:])
+       
         return ys, [ys_top, ys_right, ys_bottom, ys_left] 
 
     pole_tip = geoms[0]
@@ -276,23 +273,7 @@ def plot_bndr(model, weights, geoms):
     air2 = geoms[5]
     air3 = geoms[6]
     current = geoms[7]
-
-    p0 = pole_tip.__call__(np.array([[1,1]]))
-    p1 = air1.__call__(np.array([[1,1]]))
-    p2 = air2.__call__(np.array([[-1,1]]))
-    
-    
-    print('p0: ', p0)
-    print('p1: ', p1)
-    print('p2: ', p2)
-
-
-
     ys, samples = sample_bnd()
-    print('A0 ', pole_tip.__call__(samples[0])[0:10,1])
-    print('A1 ', air1.__call__(samples[0])[0:10,1])
-    print('A2 ', air2.__call__(samples[0])[0:10,1])
-
     # [plt.scatter(air1.__call__(i)[:,0], air1.__call__(i)[:,1], c = 'g') for i in samples]
     # [plt.scatter(air2.__call__(i)[:,0], air2.__call__(i)[:,1], c = 'b') for i in samples]
     # plt.scatter(air1.__call__(samples[0])[:,0], air1.__call__(samples[0])[:,1], c = 'k') 
@@ -313,110 +294,113 @@ def plot_bndr(model, weights, geoms):
     vals7 = [model.solution7(weights, i) for i in samples]
     vals8 = [model.solution8(weights, i) for i in samples]
     
-    
+    left_brd = jnp.array([[-1,1]]) 
+    right_brd = jnp.array([[1,1]]) 
+
+    ys = np.linspace(-1,1,1000)
+    ys = ys[:,np.newaxis]
+    ones_vec = np.ones_like(ys)
+    input_1 = np.concatenate((ones_vec, ys), axis = 1)
+    input_2 = np.concatenate((-1 * ones_vec, ys), axis = 1)
+    print(input_1, input_2.shape)
+    sol5 = model.solution5a(weights, input_1)
+    sol6 = model.solution6a(weights, input_2)
+    sol_5l = model.solution5a(weights, right_brd)
+    sol_6l = model.solution6a(weights, left_brd)
+    print(sol_5l, sol_6l)
+    p1 = pole_tip.__call__(input_1)
+    p2 = air2.__call__(input_2)
+    print('The difference in points is ', np.abs(np.sum(p1 - p2)))
+     
     plt.figure()
-    plt.plot(ys, vals6[0], label = 'u65')
-    plt.plot(ys, vals5[0], label = 'u56')
+    plt.plot(ys, vals5[1], label = 'u51')
+    plt.plot(ys, np.flip(vals1[0]), label = 'u15')
     plt.legend()
+
+
+    plt.figure()
+    plt.plot(ys, vals1[1], label = 'u16')
+    plt.plot(ys,np.flip(vals6[3]), label = 'u61')
+    plt.legend()
+
 
     plt.figure()
     plt.plot(ys, vals6[1], label = 'u67')
-    plt.plot(ys, vals7[3], label = 'u76')
+    plt.plot(ys, np.flip(vals7[0]), label = 'u76')
     plt.legend()
 #
     plt.figure()
     plt.plot(ys, vals6[2], label = 'u68')
-    plt.plot(ys, vals8[0], label = 'u86')
+    plt.plot(ys, np.flip(vals8[0]), label = 'u86')
     plt.legend()
     #
     plt.figure()
-    plt.plot(ys, vals1[0], label = 'u15')
-    plt.plot(ys, vals5[1], label = 'u51')
-    plt.legend()
-#
-    plt.figure()
-    plt.plot(ys, vals1[1], label = 'u16')
-    plt.plot(ys, vals6[3], label = 'u61')
-    plt.legend()
-#
-    plt.figure()
     plt.plot(ys, vals1[2], label = 'u12')
-    plt.plot(ys, vals2[0], label = 'u21')
+    plt.plot(ys, np.flip(vals2[0]), label = 'u21')
     plt.legend()
 #
     plt.plot(ys, np.zeros_like(ys))
     plt.figure()
     plt.plot(ys, vals2[0], label = 'u21')
-    plt.plot(ys, vals1[2], label = 'u12')
+    plt.plot(ys, np.flip(vals1[2]), label = 'u12')
     plt.legend()
 #
     plt.figure()
     plt.plot(ys, vals2[1], label = 'u28')
-    plt.plot(ys, vals8[3], label = 'u82')
+    plt.plot(ys, np.flip(vals8[3]), label = 'u82')
     plt.legend()
 #
-    plt.figure()
-    plt.plot(ys, vals2[2], label = 'u23')
-    plt.plot(ys, vals3[3], label = 'u32')
-    plt.legend()
-#
+
     #plt.plot(ys, np.zeros_like(ys))
 #
     plt.figure()
     plt.plot(ys, vals3[0], label = 'u38')
-    plt.plot(ys, vals8[2], label = 'u83')
+    plt.plot(ys, np.flip(vals8[2]), label = 'u83')
     plt.legend()
 #
     plt.figure()
     plt.plot(ys, vals3[1], label = 'u34')
-    plt.plot(ys, vals4[3], label = 'u43')
+    plt.plot(ys, np.flip(vals4[3]), label = 'u43')
     plt.legend()
 #
     plt.figure()
     plt.plot(ys, vals3[3], label = 'u32')
-    plt.plot(ys, vals2[2], label = 'u23')
+    plt.plot(ys, np.flip(vals2[2]), label = 'u23')
     plt.legend()
     
     plt.figure()
     plt.plot(ys, vals5[0], label = 'u56')
-    plt.plot(ys, vals6[0], label = 'u65')
+    plt.plot(ys, np.flip(vals6[0]), label = 'u65')
     plt.legend()
  #
-    plt.figure()
-    plt.plot(ys, vals5[1], label = 'u51')
-    plt.plot(ys, vals1[0], label = 'u15')
-    plt.legend()
+
  #
     plt.figure()
     plt.plot(ys, vals8[0], label = 'u86')
-    plt.plot(ys, vals6[2], label = 'u68')
+    plt.plot(ys, np.flip(vals6[2]), label = 'u68')
     plt.legend()
     
     plt.figure()
     plt.plot(ys, vals8[1], label = 'u87')
-    plt.plot(ys, vals7[3], label = 'u78')
+    plt.plot(ys, np.flip(vals7[3]), label = 'u78')
     plt.legend()
 #
     plt.figure()
     plt.plot(ys, vals8[3], label = 'u82')
-    plt.plot(ys, vals2[1], label = 'u28')
+    plt.plot(ys, np.flip(vals2[1]), label = 'u28')
     plt.legend()
 #
 #
     plt.figure()
     plt.plot(ys, vals7[0], label = 'u76')
-    plt.plot(ys, vals6[1], label = 'u67')
+    plt.plot(ys, np.flip(vals6[1]), label = 'u67')
     plt.legend()
     
     plt.figure()
     plt.plot(ys, vals7[2], label = 'u74')
-    plt.plot(ys, vals4[0], label = 'u47')
+    plt.plot(ys, np.flip(vals4[0]), label = 'u47')
     plt.legend()
-#
-    plt.figure()
-    plt.plot(ys, vals7[3], label = 'u78')
-    plt.plot(ys, vals8[1], label = 'u87')
-    plt.legend()
+
 
     plt.show()
 
