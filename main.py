@@ -226,7 +226,7 @@ class Model(src.PINN):
         #self.mu0 = 0.001
         self.mur = 1
         #self.mur = 2000
-        self.J0 =  100
+        self.J0 =  10000
         #self.J0 =  100
 
         self.k1 = 0.001
@@ -414,7 +414,9 @@ class Model(src.PINN):
         # Ansatz Function: v(x,y) = (1-x)*(-)*(1-y)*(1+y)
         v = ((1 - x[...,1]) * (x[...,1] + 1) * (1 - x[...,0]))[...,None]
         
-        w56 = self.interface56(ws['u56'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
+        w56 = self.interface56(ws['u56'],x) * ((x[...,0] + 1) * (1 - x[...,0]) )[...,None]
+        # w56 = self.interface56(ws['u56'],x) * ((1 - x[...,0]) )[...,None]
+
 
         w51 = self.interface51(ws['u15'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
 
@@ -431,7 +433,7 @@ class Model(src.PINN):
         #------------------------------------------------------------------------------#
         # w156 = u_{156} * ((x+1)*(y+1))^2   |
 
-        w = w51 + w56 + w156
+        w = w51 + w56 + w156 + w567
         return u * v + w
         
 
@@ -454,10 +456,10 @@ class Model(src.PINN):
         # Interface functions for IronYoke Right Middle 
         #------------------------------------------------------------------------------#
         w65 =  self.interface65(ws['u56'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
-           #w65 = self.interface65(ws['u56'],x) * (x[...,0] + 1)[...,None]
+        # w65 = self.interface65(ws['u56'],x) * (x[...,0] + 1)[...,None]
 
         w67 = self.interface67(ws['u67'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
-            #w67 = self.interface67(ws['u67'],x) * ((x[...,1] + 1) * (x[...,1] - 1))[...,None]
+        # w67 = self.interface67(ws['u67'],x) * ((x[...,1] + 1))[...,None]
 
         w68 = self.interface68(ws['u68'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
         w61 = self.interface61(ws['u16'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
@@ -479,7 +481,7 @@ class Model(src.PINN):
         # w3467 = u_{3467} * ((1-x)*(1-y))^2    |
         # w678  = u_{678}  * ((1-x)*(y+1))^2    |
 
-        w = w65 + w67 + w68 + w61 + w156 + w1268 + w678 
+        w = w67 + w65 + w68 + w61 + w156 + w1268 + w678 + w567
         return u * v + w
 
     def solution6a(self, ws, x):
@@ -522,7 +524,7 @@ class Model(src.PINN):
         # w3478 = u_{3478} * ((1-x)*(1-y))^2    |
         # w678  = u_{678}  * ((1-x)*(y+1))^2    |
 
-        w = w76 + w74 + w78 + w3478 + w678 
+        w = w76 + w74 + w78 + w3478 + w678 + w567
         return u * v + w
 
 
@@ -633,22 +635,20 @@ tme_model1 = datetime.datetime.now()
 model = Model(rnd_key)
 w0 = model.init_unravel()
 weights = model.weights 
-# plot_bndr(model, weights, geoms)
-plot_solution(rnd_key, model, weights)
-exit()
 tme_model2 = datetime.datetime.now()
 print('... end')
 print('Time took to instantiate the model: ', tme_model2 - tme_model1, ' sec')
 #exit()
-# plot_solution(rnd_key, model, weights)
+plot_solution(rnd_key, model, weights)
+plt.show()
 
 
 
 
 opt_type = 'ADAM'
 batch_size = 2000
-stepsize = 0.0001
-
+stepsize = 0.00005
+n_epochs = 1000
 
 print('Start Generating the Monte-Carlo samples... ')
 tme_mc1 = datetime.datetime.now()
@@ -690,7 +690,6 @@ print('Time took to jit-compile the model: ', tme_jit2 - tme_jit1, ' sec')
 
 step_compiled(params, opt_state, rnd_key)
 
-n_epochs = 500
 
 tme = datetime.datetime.now()
 for k in range(n_epochs):    
@@ -703,3 +702,5 @@ for k in range(n_epochs):
 tme = datetime.datetime.now() - tme
 print('Elapsed time ', tme)
 plot_solution(rnd_key, model, params)
+plt.show()
+plot_bndr(model, weights, geoms)
