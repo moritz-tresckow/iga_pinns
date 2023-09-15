@@ -65,7 +65,7 @@ class Model(src.PINN):
         super().__init__()
         self.key = rand_key
 
-        #nl = 16
+        # nl = 16
         nl =5 
 
         acti = stax.Tanh
@@ -473,10 +473,10 @@ class Model(src.PINN):
         # Function coinciding on multiple subdomains
         #------------------------------------------------------------------------------#
         w567  = ws['u567']   *  ( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha
-        w1268 = ws['u1268'] *  ( (1 - x[...,0]) * (1 - x[...,1]) )[...,None]**alpha
+        w1268 = ws['u1268']  *  ( (1 - x[...,0]) * (1 - x[...,1]) )[...,None]**alpha
         w678  = ws['u678']   *  ( (x[...,0] + 1) * (1 - x[...,1]) )[...,None]**alpha
         # Original w156  = ws['u156']   *  ( (1 - x[...,0]) * (x[...,1] + 1) )[...,None]**alpha
-        w156  = ws['u156']   *  ((1 - x[...,0]) * (x[...,1] + 1) )[...,None]**alpha
+        w156  = ws['u156']   *  ( (1 - x[...,0]) * (x[...,1] + 1) )[...,None]**alpha
         #------------------------------------------------------------------------------#
         # w567  = u_{567}  * ((x+1)*(y+1))^2    |
         # w3467 = u_{3467} * ((1-x)*(1-y))^2    |
@@ -628,13 +628,7 @@ class Model(src.PINN):
         lpde = self.loss_pde(ws, pts)
         return lpde
     
-def step(params, opt_state, key):
-    # points = model.get_points_MC(5000)
-    points = model.get_points_MC(batch_size, key)
-    loss, grads = loss_grad(params, points)
-    opt_state = opt_update(0, grads, opt_state)
-    params = get_params(opt_state)
-    return params, opt_state, loss
+
 
 
 
@@ -648,7 +642,7 @@ plt.show()
 
 
 opt_type = 'ADAM'
-batch_size = 2000
+batch_size = 5000
 stepsize = 0.00005
 n_epochs = 5000
 
@@ -659,12 +653,22 @@ params = get_params(opt_state)
 print(params['u567'], params['u1268'], params['u3478'], params['u3478'], params['u678']) 
 loss_grad = jax.jit(lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(ws, pts)))
 
+key = jax.random.PRNGKey(np.random.randint(32131233123))
+points = model.get_points_MC(batch_size, key)
+def step(params, opt_state, key):
+    # points = model.get_points_MC(batch_size, key)
+    loss, grads = loss_grad(params, points)
+    opt_state = opt_update(0, grads, opt_state)
+    params = get_params(opt_state)
+    return params, opt_state, loss
+
+
 step_compiled = jax.jit(step)
 step_compiled(params, opt_state, rnd_key)
 
 tme = datetime.datetime.now()
 for k in range(n_epochs):    
-    params, opt_state, loss = step_compiled(params, opt_state, jax.random.PRNGKey(np.random.randint(32131233123)))
+    params, opt_state, loss = step_compiled(params, opt_state, key)
     print(params['u567'], params['u1268'], params['u3478'], params['u3478'], params['u678']) 
     print('Epoch %d/%d - loss value %e'%(k+1, n_epochs, loss))
 # update params

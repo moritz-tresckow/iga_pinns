@@ -29,8 +29,8 @@ class PINN():
 
     def add_trainable_parameter(self, name, shape):
 
-        #self.weights[name] = jax.random.normal(self.key, shape)
-        self.weights[name] = 0.1
+        self.weights[name] = -1 *jax.random.normal(self.key, shape)
+        #self.weights[name] = 0.1
 
     def init_unravel(self):
         
