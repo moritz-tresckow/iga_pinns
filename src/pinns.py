@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 import datetime
 import jax.scipy.optimize
 import jax.flatten_util
+import src
+from src import models
+from src.models import model_init
 
 class PINN():
     
@@ -20,6 +23,13 @@ class PINN():
         self.neural_networks[name] = ann[1]
         self.neural_networks_initializers[name] = ann[0]
         self.weights[name] = ann[0](self.key, input_shape)[1]
+
+
+    def add_flax_network(self, name, feat):
+        params, model = model_init()
+        self.neural_networks[name] = model
+        self.weights[name] = params
+
 
     def add_neural_network_param(self, name, ann, input_shape):
         

@@ -2,5 +2,5 @@
 
 """
 from .pinns import PINN
-from . import operators, bspline, geometry
+from . import operators, bspline, geometry, models
 

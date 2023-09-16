@@ -4,9 +4,6 @@ import jax.numpy as jnp
 from jax.example_libraries import stax, optimizers
 import matplotlib.pyplot as plt
 import src 
-from src import models
-from src.models import *
-
 import datetime
 import jax.scipy.optimize
 import jax.flatten_util
@@ -172,6 +169,7 @@ class Model(src.PINN):
         super().__init__()
         self.key = rand_key
 
+        N = [32,32]
         nl =3 
         acti = stax.Tanh
         acti =  stax.elementwise(lambda x: jax.nn.leaky_relu(x)**2)
@@ -183,17 +181,10 @@ class Model(src.PINN):
         block_first = stax.serial(stax.FanOut(2),stax.parallel(stax.serial(stax.Dense(nl), acti, stax.Dense(nl), acti),stax.Dense(nl)),stax.FanInSum)
         block       = stax.serial(stax.FanOut(2),stax.parallel(stax.serial(stax.Dense(nl), acti, stax.Dense(nl), acti),stax.Dense(nl)),stax.FanInSum)
         
-        alternative = 0
-        self.add_flax_network('u1', alternative)
-        # self.add_flax_network('u2', feat_domain)
-        # self.add_flax_network('u3', feat_domain)
-        # self.add_flax_network('u4', feat_domain)
-        
-        # self.add_neural_network('u1',stax.serial(block_first,block,block, block, stax.Dense(1)),(-1,2)) # iron
+        self.add_neural_network('u1',stax.serial(block_first,block,block, block, stax.Dense(1)),(-1,2)) # iron
         self.add_neural_network('u4',stax.serial(block_first,block,block, block, stax.Dense(1)),(-1,2)) # iron 2
         self.add_neural_network('u2',stax.serial(block_first,block,block, block, stax.Dense(1)),(-1,2)) # air 
         self.add_neural_network('u3',stax.serial(block_first,block,block, block, stax.Dense(1)),(-1,2)) # copper
-
         self.add_neural_network('u12',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
         self.add_neural_network('u13',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
         # self.add_neural_network('u13',stax.serial(stax.Dense(1000), acti4, stax.Dense(1)),(-1,1))
@@ -288,11 +279,7 @@ class Model(src.PINN):
         alpha = 2
         
         # Solution on the domain
-        # u = self.neural_networks['u1'](ws['u1'],x) + self.jump1(ws['u1_0.3'], x) + self.jump2(ws['u1_0.7'], x)
-
-
-
-        u = self.neural_networks['u1'].apply(ws['u1'],x) #+ self.jump1(ws['u1_0.3'], x) + self.jump2(ws['u1_0.7'], x)
+        u = self.neural_networks['u1'](ws['u1'],x) + self.jump1(ws['u1_0.3'], x) + self.jump2(ws['u1_0.7'], x)
         
         # Ansatz function which vanishes on the boundary (pyramid)  
         v = ((1 - x[...,0])*(x[...,0] + 1) * (1 - x[...,1])*(x[...,1] + 1))[...,None]
@@ -456,6 +443,8 @@ rnd_key = jax.random.PRNGKey(1235)
 model = Model(rnd_key)
 w0 = model.init_unravel()
 weights = model.weights 
+print(weights)
+exit()
 
 opt_type = 'ADAM'
 batch_size = 2000
@@ -468,9 +457,12 @@ opt_state = opt_init(weights)
 
 # get initial parameters
 params = get_params(opt_state)
+path = '/home/mvt/iga_pinns/'
+save_weights(params, path)
+exit()
 
-# plot_bndr_quad_nonlin(model, weights)
-# plot_solution_quad_nonlin(model, weights, [geom1, geom2, geom3, geom4])
+plot_bndr_quad_nonlin(model, weights)
+plot_solution_quad_nonlin(model, weights, [geom1, geom2, geom3, geom4])
 
 
 
