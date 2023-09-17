@@ -14,7 +14,6 @@ import scipy
 import scipy.optimize
 from jax.config import config
 from plot_scripts import plot_solution_quad_nonlin, plot_bndr_quad_nonlin
-from helpers import save_weights
 config.update("jax_enable_x64", True)
 rnd_key = jax.random.PRNGKey(1234)
 
@@ -66,7 +65,6 @@ def create_geometry(key, scale = 1):
    
     knots2 = np.array([ [ [Dc,0],[Dc+blc,0],[Di-bli,0],[Di,0] ] , [[Dc,hc],[Dc+blc,hi],[Di-bli,hi],[Di,hi-bli]] ]) 
     knots2 = knots2[:,::-1,:]
-    print(knots2)
 
    
     plot_knots = np.reshape(knots2, (knots2.shape[0]*knots.shape[1],2))
@@ -149,18 +147,18 @@ def interface_function2d(nd, endpositive, endzero, nn):
 
     faux = lambda x: ((x-endzero)**1/(endpositive-endzero)**1)
     if nd == 0: # NN(y)*(x-endzero)/(endpositive - endzero)
-        fret = lambda ws, x: (nn(ws, x[...,1][...,None]).flatten()*faux(x[...,0]))[...,None]
+        fret = lambda ws, x: (nn.apply(ws, x[...,1][...,None]).flatten()*faux(x[...,0]))[...,None]
     else: # NN(x)*(y-endzero)/(endpositive - endzero)
-        fret = lambda ws, x: (nn(ws, x[...,0][...,None]).flatten()*faux(x[...,1]))[...,None]
+        fret = lambda ws, x: (nn.apply(ws, x[...,0][...,None]).flatten()*faux(x[...,1]))[...,None]
     return fret
 
 def jump_function2d(nd, pos_y, nn):
     # Function compactly supported on the patch
     faux = lambda x: jnp.exp(-4.0*jnp.abs(x-pos_y))
     if nd == 1:
-        fret = lambda ws, x: (nn(ws, x[...,1][...,None]).flatten()*faux(x[...,0]))[...,None]
+        fret = lambda ws, x: (nn.apply(ws, x[...,1][...,None]).flatten()*faux(x[...,0]))[...,None]
     else: # fret(x,y) = NN(x)*exp(-4*|y-y_pos|)
-        fret = lambda ws, x: (nn(ws, x[...,0][...,None]).flatten()*faux(x[...,1]))[...,None]
+        fret = lambda ws, x: (nn.apply(ws, x[...,0][...,None]).flatten()*faux(x[...,1]))[...,None]
     return fret
 
 def ExpHat(x, scale = 0.1):
@@ -172,40 +170,29 @@ class Model(src.PINN):
         super().__init__()
         self.key = rand_key
 
-        nl =3 
-        acti = stax.Tanh
-        acti =  stax.elementwise(lambda x: jax.nn.leaky_relu(x)**2)
-        acti1 = stax.elementwise(lambda x: jax.nn.leaky_relu(x+1)**2)
-        acti2 = stax.elementwise(lambda x: jax.nn.leaky_relu(x+0.33)**2)
-        acti3 = stax.elementwise(lambda x: jax.nn.leaky_relu(x-0.33)**2)
-        acti4 = stax.elementwise(lambda x: jnp.exp(-1.0*jnp.abs(x)))
+        nl = 10
+        nl_bndr =5 
         
-        block_first = stax.serial(stax.FanOut(2),stax.parallel(stax.serial(stax.Dense(nl), acti, stax.Dense(nl), acti),stax.Dense(nl)),stax.FanInSum)
-        block       = stax.serial(stax.FanOut(2),stax.parallel(stax.serial(stax.Dense(nl), acti, stax.Dense(nl), acti),stax.Dense(nl)),stax.FanInSum)
         
-        alternative = 0
-        self.add_flax_network('u1', alternative)
-        # self.add_flax_network('u2', feat_domain)
-        # self.add_flax_network('u3', feat_domain)
-        # self.add_flax_network('u4', feat_domain)
+        feat_domain = [2, nl, nl, 1] 
+        feat_bndr = [1, nl_bndr, nl_bndr, 1] 
+        self.add_flax_network('u1', feat_domain, True)
+        self.add_flax_network('u2', feat_domain, True)
+        self.add_flax_network('u3', feat_domain, True)
+        self.add_flax_network('u4', feat_domain, True)
         
-        # self.add_neural_network('u1',stax.serial(block_first,block,block, block, stax.Dense(1)),(-1,2)) # iron
-        self.add_neural_network('u4',stax.serial(block_first,block,block, block, stax.Dense(1)),(-1,2)) # iron 2
-        self.add_neural_network('u2',stax.serial(block_first,block,block, block, stax.Dense(1)),(-1,2)) # air 
-        self.add_neural_network('u3',stax.serial(block_first,block,block, block, stax.Dense(1)),(-1,2)) # copper
 
-        self.add_neural_network('u12',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
-        self.add_neural_network('u13',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
-        # self.add_neural_network('u13',stax.serial(stax.Dense(1000), acti4, stax.Dense(1)),(-1,1))
-        self.add_neural_network('u23',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
-        self.add_neural_network('u14',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
-        self.add_neural_network('u34',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
-        self.add_neural_network('u1_0.3',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
-        self.add_neural_network('u1_0.7',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
-        self.add_trainable_parameter('u123',(1,)) # Iron - Air - Copper
-        self.add_trainable_parameter('u134',(1,)) # Iron - Iron2 - Copper
-        self.add_trainable_parameter('u13_p0.33',(1,))
-        self.add_trainable_parameter('u13_n0.33',(1,))
+        self.add_flax_network('u12', feat_bndr, True)
+        self.add_flax_network('u13', feat_bndr, True)
+        self.add_flax_network('u23', feat_bndr, True)
+        self.add_flax_network('u14', feat_bndr, True)
+        self.add_flax_network('u34', feat_bndr, True)
+        self.add_flax_network('u1_0.3', feat_bndr, True)
+        self.add_flax_network('u1_0.7', feat_bndr, True)
+        self.add_trainable_parameter('u123',(1,), True) # Iron - Air - Copper
+        self.add_trainable_parameter('u134',(1,), True) # Iron - Iron2 - Copper
+        self.add_trainable_parameter('u13_p0.33',(1,), True)
+        self.add_trainable_parameter('u13_n0.33',(1,), True)
         
 
         # Domains: 1: Iron, 2: Air, 3: Copper, 4. Iron 2 (lower right)
@@ -251,8 +238,8 @@ class Model(src.PINN):
         self.k1 = 0.001
         self.k2 = 1.65/5000
         self.k3 = 0.5
-        num_pts = 100000
-        self.points = self.get_points_MC(1000, self.key)
+        #num_pts = 100000
+        #self.points = self.get_points_MC(1000, self.key)
         
 
     def get_points_MC(self, N, key):        
@@ -292,7 +279,7 @@ class Model(src.PINN):
 
 
 
-        u = self.neural_networks['u1'].apply(ws['u1'],x) #+ self.jump1(ws['u1_0.3'], x) + self.jump2(ws['u1_0.7'], x)
+        u = self.neural_networks['u1'].apply(ws['u1'],x) + self.jump1(ws['u1_0.3'], x) + self.jump2(ws['u1_0.7'], x)
         
         # Ansatz function which vanishes on the boundary (pyramid)  
         v = ((1 - x[...,0])*(x[...,0] + 1) * (1 - x[...,1])*(x[...,1] + 1))[...,None]
@@ -332,7 +319,7 @@ class Model(src.PINN):
     def solution2(self, ws, x):
         # 2. Domain : Air
         alpha = 2
-        u = self.neural_networks['u2'](ws['u2'],x)
+        u = self.neural_networks['u2'].apply(ws['u2'],x)
 
         v = ((1-x[...,1])*(x[...,1] + 1)*(1-x[...,0]))[...,None]
         # Ansatz Function: v(x,y) = (1-x)*(-)*(1-y)*(1+y)
@@ -358,7 +345,7 @@ class Model(src.PINN):
         alpha = 2
 
         # Inner degrees of freedom:
-        u = self.neural_networks['u3'](ws['u3'],x)
+        u = self.neural_networks['u3'].apply(ws['u3'],x)
         
         # Ansatz Function for inner dofs
         v = ((1-x[...,1])*(x[...,1] + 1)*(1-x[...,0]))[...,None]
@@ -392,7 +379,7 @@ class Model(src.PINN):
         # 4. Domain : Iron 2
         alpha = 2
 
-        u = self.neural_networks['u4'](ws['u4'],x)
+        u = self.neural_networks['u4'].apply(ws['u4'],x)
         # Ansatz Function (Domain) 
         #------------------------------------------------------------------------------#
         v = ((1-x[...,0])*(x[...,0] + 1)*(1-x[...,1]))[...,None]
@@ -459,43 +446,32 @@ weights = model.weights
 
 opt_type = 'ADAM'
 batch_size = 2000
-
-#get_compiled = jax.jit(lambda key: model.get_points_MC(batch_size, key))
-
 opt_init, opt_update, get_params = optimizers.adam(step_size=0.001)
-
 opt_state = opt_init(weights)
 
 # get initial parameters
 params = get_params(opt_state)
-
+print('Success in loading model...')
+# plot_solution_quad_nonlin(model, params, [geom1, geom2, geom3, geom4])
+# exit()
 # plot_bndr_quad_nonlin(model, weights)
 # plot_solution_quad_nonlin(model, weights, [geom1, geom2, geom3, geom4])
-
-
-
-
-
-
 
 
 
 loss_grad = jax.jit(lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(ws, pts)))
 
 def step(params, opt_state, key):
-    # points = model.get_points_MC(5000)
     points = model.get_points_MC(batch_size, key)
     loss, grads = loss_grad(params, points)
     opt_state = opt_update(0, grads, opt_state)
-
     params = get_params(opt_state)
-    
     return params, opt_state, loss
 
 step_compiled = jax.jit(step)
 step_compiled(params, opt_state, rnd_key)
 
-n_epochs = 5000
+n_epochs = 500
 
 tme = datetime.datetime.now()
 for k in range(n_epochs):    
@@ -506,3 +482,5 @@ for k in range(n_epochs):
 plot_solution_quad_nonlin(model, params, [geom1, geom2, geom3, geom4])
 tme = datetime.datetime.now() - tme
 print('Elapsed time ', tme)
+
+# save_models(params, './parameters/')

@@ -20,7 +20,6 @@ def plot_solution_quad_nonlin(model, params, geoms):
     geom4 = geoms[3]
     model.weights = params
     weights = params
-    print(weights)
 
     x,y = np.meshgrid(np.linspace(-1,1,100),np.linspace(-1,1,100))
     ys = np.concatenate((x.flatten()[:,None],y.flatten()[:,None]),1)

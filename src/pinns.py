@@ -8,7 +8,7 @@ import jax.scipy.optimize
 import jax.flatten_util
 import src
 from src import models
-from src.models import model_init
+from src.models import model_init, load_data
 
 class PINN():
     
@@ -25,8 +25,15 @@ class PINN():
         self.weights[name] = ann[0](self.key, input_shape)[1]
 
 
-    def add_flax_network(self, name, feat):
-        params, model = model_init()
+    def add_flax_network(self, name, feat, load):
+        params, model = model_init(feat)
+        if load == True:
+            try:
+                params = load_data(model, './parameters/' + name + '.txt')
+                print('Success in loading ' + name)
+            except:
+                pass
+
         self.neural_networks[name] = model
         self.weights[name] = params
 
@@ -37,10 +44,17 @@ class PINN():
         self.neural_networks_initializers[name] = ann[0]
         self.weights[name] = ann[0](self.key, input_shape)[1]
 
-    def add_trainable_parameter(self, name, shape):
-
+    def add_trainable_parameter(self, name, shape, load):
         self.weights[name] = -1 *jax.random.normal(self.key, shape)
-        #self.weights[name] = 0.1
+        if load == True:
+            try:
+                my_weight = np.loadtxt('./parameters/' + name + '.csv', delimiter=',')
+                my_weight = jnp.array(my_weight)
+                self.weights[name] = my_weight
+                print('Success in loading ' + name)
+            except:
+                pass
+
 
     def init_unravel(self):
         
