@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Tue May 26 09:11:59 2020
-
-@author: armin
-"""
-
 from fenics import *
 import numpy as np
 import os
 from dolfin_utils.meshconvert import meshconvert
-#### Helper scripts for mesh import ####
+
+
 
 def load_mesh(meshfile):
     if not os.path.exists(meshfile+".h5"):
@@ -39,3 +34,6 @@ def load_mesh(meshfile):
     boundaries = MeshFunction("size_t", mesh, mesh.topology().dim()-1)
     hdf.read(boundaries, "/boundaries")
     return mesh, domains, boundaries
+
+
+# Coil

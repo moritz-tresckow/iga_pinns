@@ -71,6 +71,7 @@ def create_geometry(key, scale = 1):
         knot_bnd = np.matmul(rotation_mat, knots_outer[0,:])                         # Generate the final knot by rotating the last knot by 22.5 degrees
         knots_outer = np.concatenate((knot_bnd[np.newaxis,:], knots_outer))          # Add said knot to the knot vector
         
+
         knots_inner = np.array([[0.1162132, 0.0462868],[0.1112132, 0.0537868],[0.0962132, 0.0537868] ,[d4x, d4y], [0.05, 0.00755176]]) # Fix the inner nodes, leave the first node variable
         knots_middle = (knots_outer+knots_inner)/2                                         # Generate the knots between inner and outer nodes 
         knots_middle[-1,:] = C.flatten()                                             # Add nodes on the pole tips
@@ -129,6 +130,7 @@ def create_geometry(key, scale = 1):
         knots_as = np.array([a1, a2, a3])
         knots = np.array([[[0,0],[a2[0],0],[a3[0],0]]])
         knots = np.concatenate((knots, knots_as[np.newaxis,:]))
+        print(knots)
         weights = np.ones(knots.shape[:2])
         weights[1,1] = np.sin((np.pi-alpha)/2)
 
@@ -158,6 +160,8 @@ def create_geometry(key, scale = 1):
     def mke_current_domain(knots_yoke, knots_air3):
         knots_curr_upper = knots_yoke[-1,:,:]
         knots_curr_lower =  knots_air3[0,:,:]
+        print(knots_curr_lower)
+        exit()
         knots_curr = np.concatenate((knots_curr_upper[None,...], knots_curr_lower[None,...]),0)
         weights = np.ones(knots_curr.shape[:2])
     
@@ -173,9 +177,6 @@ def create_geometry(key, scale = 1):
     current = mke_current_domain(knots_yoke, knots_air3)
     
     return iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_1, air_2, air_3, current
-
-#%% Instantiate geometry parametrizations
-
 
 def plot_geo_bnd(geom):
     #iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_1, air_2, air_3, current  = create_geometry(rnd_key)
@@ -233,10 +234,10 @@ def plot_geo_bnd(geom):
 
 
 
-#iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_1, air_2, air_3, current  = create_geometry(rnd_key)
-#plot_geo_bnd(air_3)
-#plt.show()
-
+iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_1, air_2, air_3, current  = create_geometry(rnd_key)
+plot_geo_bnd(air_3)
+plt.show()
+exit()
 # iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_1, air_2, air_3, current  = create_geometry(rnd_key)
 
 
