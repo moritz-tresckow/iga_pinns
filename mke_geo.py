@@ -160,8 +160,6 @@ def create_geometry(key, scale = 1):
     def mke_current_domain(knots_yoke, knots_air3):
         knots_curr_upper = knots_yoke[-1,:,:]
         knots_curr_lower =  knots_air3[0,:,:]
-        print(knots_curr_lower)
-        exit()
         knots_curr = np.concatenate((knots_curr_upper[None,...], knots_curr_lower[None,...]),0)
         weights = np.ones(knots_curr.shape[:2])
     
@@ -181,19 +179,43 @@ def create_geometry(key, scale = 1):
 def plot_geo_bnd(geom):
     #iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_1, air_2, air_3, current  = create_geometry(rnd_key)
     print('Starting domain calculations')
-    iron_pole_pts,_ = iron_pole.importance_sampling(1000)
-    iron_yoke_pts,_ = iron_yoke.importance_sampling(1000)
-    current_pts,_ = current.importance_sampling(1000)
-    air_3_pts,_ = air_3.importance_sampling(1000)
-    air_2_pts,_ = air_2.importance_sampling(1000)
-    air_1_pts,_ = air_1.importance_sampling(1000)
-    iron_yoke_r_mid_pts,_ = iron_yoke_r_mid.importance_sampling(300)
-    iron_yoke_r_low_pts,_ = iron_yoke_r_low.importance_sampling(1000)
-    geom_pts,_ = geom.importance_sampling(1000)
+
+    ys = np.linspace(-1,1,100)
+    xx,yy = np.meshgrid(ys, ys)
+    input_vec = np.concatenate((xx.flatten()[:,np.newaxis], yy.flatten()[:,np.newaxis]), axis = 1)
+    # iron_pole_pts,_ = iron_pole.importance_sampling(1000)
+    #iron_yoke_pts,_ = iron_yoke.importance_sampling(1000)
+    #current_pts,_ = current.importance_sampling(1000)
+    #air_3_pts,_ = air_3.importance_sampling(1000)
+    #air_2_pts,_ = air_2.importance_sampling(1000)
+    #air_1_pts,_ = air_1.importance_sampling(1000)
+    #iron_yoke_r_mid_pts,_ = iron_yoke_r_mid.importance_sampling(300)
+    #iron_yoke_r_low_pts,_ = iron_yoke_r_low.importance_sampling(1000)
+    #geom_pts,_ = geom.importance_sampling(1000)
+    
+    iron_pole_pts = iron_pole.__call__(input_vec)
+    iron_yoke_pts = iron_yoke.__call__(input_vec)
+    current_pts = current.__call__(input_vec)
+    air_3_pts = air_3.__call__(input_vec)
+    air_2_pts = air_2.__call__(input_vec)
+    air_1_pts = air_1.__call__(input_vec)
+    iron_yoke_r_mid_pts = iron_yoke_r_mid.__call__(input_vec)
+    iron_yoke_r_low_pts = iron_yoke_r_low.__call__(input_vec)
+
+    pts = [iron_pole_pts, iron_yoke_pts, current_pts, air_3_pts, air_2_pts, air_1_pts, iron_yoke_r_mid_pts, iron_yoke_r_low_pts]
+    #[plt.scatter(i[:,0], i[:,1]) for i in pts]
+    #plt.show()
+    #exit()
+    [np.reshape(i, (100**2, 2)) for i in pts]
+    pts = np.array(pts)
+    pts = np.reshape(pts, (pts.shape[0]*pts.shape[1], 2))
+    np.savetxt('./coordinates.csv', pts, delimiter = ',', comments = '')
+    exit()
     print('Ending domain calculations')
 
 
     print('Starting boundary calculations')
+    
     ys = jax.random.uniform(rnd_key, (1000, 2))
     ys = 2*ys - 1
     ys_right = ys.at[:,0].set(1)
