@@ -29,14 +29,6 @@ def evaluate_models(model, params, ys, x):
     u7 = model.solution7(weights, ys).reshape(x.shape)
     u8 = model.solution8(weights, ys).reshape(x.shape)
 
-    u1 = np.abs(u1)
-    u2 = np.abs(u2)
-    u3 = np.abs(u3)
-    u4 = np.abs(u4)
-    u5 = np.abs(u5)
-    u6 = np.abs(u6)
-    u7 = np.abs(u7)
-    u8 = np.abs(u8)
     vmin = min([u1.min(),u2.min(),u3.min(),u4.min(),u5.min(),u6.min(),u7.min(),u8.min()]) 
     vmax = max([u1.max(),u2.max(),u3.max(),u4.max(),u5.max(),u6.max(),u7.max(),u8.max()])
     return [u1, u2, u3, u4, u5, u6, u7, u8], vmin, vmax
@@ -54,7 +46,7 @@ def evaluate_error(model, params):
     vmin = np.amin(ref_values)
     vmax = np.amax(ref_values)
     vmin = 0
-    vmax = 1 
+    vmax = 0.2 
     error = [] 
     print(vmin, vmax)
     plt.figure()
@@ -73,8 +65,12 @@ def evaluate_error(model, params):
         uu = np.reshape(local_vals, (100, 100))
         error_local = np.abs(sol_model[i] - uu)
         error.append(np.sum(error_local))
+        relative_error_domain = np.sum(error_local)/np.sum(np.abs(uu))
+        print('The relative error in domain ', i + 1, ' is ', relative_error_domain*100, ' %')
         plt.contourf(xx,yy,error_local,norm = norm, levels = 100)
-   
+        plt.colorbar(m)
+        plt.show()
+        exit()
     plt.colorbar(m)
     plt.show()
     error = np.array(error)

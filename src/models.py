@@ -43,8 +43,9 @@ class Res_MLP(nn.Module):
     x = inputs
     x = act(nn.Dense(self.feat[0])(x))
     x = act(nn.Dense(self.feat[1])(x))
-    x = act(nn.Dense(self.feat[2])(x))
-    #x = x + y
+    y = act(nn.Dense(self.feat[2])(x))
+    y = act(nn.Dense(self.feat[2])(y))
+    x = x + y
     x = nn.Dense(self.feat[-1])(x)
     return x
 

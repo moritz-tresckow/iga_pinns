@@ -73,8 +73,8 @@ class Model(src.PINN):
         nl =16 
         nl_bndr = 5
 
-        feat_domain = [2, nl, nl, 1] 
-        feat_bndr = [1, nl_bndr, nl_bndr, 1] 
+        feat_domain = [2, nl, nl, nl, 1] 
+        feat_bndr = [1, nl_bndr, nl_bndr, nl_bndr, 1] 
 
         # 1 PoleTip
         self.add_flax_network('u1', feat_domain, True)
@@ -580,8 +580,6 @@ class Model(src.PINN):
         return self.k1*jnp.exp(self.k2*b2)+self.k3
     
     def loss_pde(self, ws, points):
-        print(self.mur, self.mu0, self.J0)
-        exit()
 
         grad1 = src.operators.gradient(lambda x : self.solution1(ws,x))(points['ys1'])[...,0,:]
         grad2 = src.operators.gradient(lambda x : self.solution2(ws,x))(points['ys2'])[...,0,:]
@@ -630,15 +628,15 @@ weights = model.weights
 
 opt_type = 'ADAM'
 batch_size = 5000
-stepsize = 0.00005
+stepsize = 0.0005
 n_epochs = 1500
 
 get_compiled = jax.jit(lambda key: model.get_points_MC(batch_size, key))
-opt_init, opt_update, get_params = optimizers.adamax(step_size=stepsize)
+opt_init, opt_update, get_params = optimizers.adam(step_size=stepsize)
 opt_state = opt_init(weights)
 params = get_params(opt_state)
 
-evaluate_error(model, params)
+#evaluate_error(model, params)
 print(params['u567'], params['u1268'], params['u3478'], params['u3478'], params['u678']) 
 loss_grad = jax.jit(lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(ws, pts)))
 
@@ -664,6 +662,6 @@ for k in range(n_epochs):
 
 tme = datetime.datetime.now() - tme
 print('Elapsed time ', tme)
-#save_models(params, '/home/mvt/iga_pinns/parameters/quad/')
-#print('Erfolgreich gespeichert!!')
+save_models(params, '/home/mvt/iga_pinns/parameters/quad/')
+print('Erfolgreich gespeichert!!')
 evaluate_error(model, params)
