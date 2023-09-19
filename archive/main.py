@@ -4,9 +4,6 @@ import jax.numpy as jnp
 from jax.example_libraries import stax, optimizers
 import matplotlib.pyplot as plt
 import src 
-from src import models
-from src.models import *
-
 import datetime
 import jax.scipy.optimize
 import jax.flatten_util
@@ -17,8 +14,6 @@ from jax.config import config
 config.update("jax_enable_x64", True)
 rnd_key = jax.random.PRNGKey(1234)
 from mke_geo import create_geometry, plot_solution, plot_single_domain, plot_bndr
-from post_processing import evaluate_error
-
 
 
 # Geometry parametrizations
@@ -31,9 +26,9 @@ def interface_function2d(nd, endpositive, endzero, nn):
 
     faux = lambda x: ((x-endzero)**1/(endpositive-endzero)**1)
     if nd == 0: # NN(y)*(x-endzero)/(endpositive - endzero)
-        fret = lambda ws, x: (nn.apply(ws, x[...,1][...,None]).flatten()*faux(x[...,0]))[...,None]
+        fret = lambda ws, x: (nn(ws, x[...,1][...,None]).flatten()*faux(x[...,0]))[...,None]
     else: # NN(x)*(y-endzero)/(endpositive - endzero)
-        fret = lambda ws, x: (nn.apply(ws, x[...,0][...,None]).flatten()*faux(x[...,1]))[...,None]
+        fret = lambda ws, x: (nn(ws, x[...,0][...,None]).flatten()*faux(x[...,1]))[...,None]
     return fret
 
 
@@ -44,9 +39,9 @@ def interface_function2d_inv(nd, endpositive, endzero, nn):
 
     faux = lambda x: ((x-endzero)**1/(endpositive-endzero)**1)
     if nd == 0: # NN(y)*(x-endzero)/(endpositive - endzero)
-        fret = lambda ws, x: (nn.apply(ws, -1 * x[...,1][...,None]).flatten()*faux(x[...,0]))[...,None]
+        fret = lambda ws, x: (nn(ws, -1 * x[...,1][...,None]).flatten()*faux(x[...,0]))[...,None]
     else: # NN(x)*(y-endzero)/(endpositive - endzero)
-        fret = lambda ws, x: (nn.apply(ws, -1 * x[...,0][...,None]).flatten()*faux(x[...,1]))[...,None]
+        fret = lambda ws, x: (nn(ws, -1 * x[...,0][...,None]).flatten()*faux(x[...,1]))[...,None]
     return fret
 
 
@@ -55,9 +50,9 @@ def jump_function2d(nd, pos_y, nn):
     # Function compactly supported on the patch
     faux = lambda x: jnp.exp(-4.0*jnp.abs(x-pos_y))
     if nd == 1:
-        fret = lambda ws, x: (nn.apply(ws, x[...,1][...,None]).flatten()*faux(x[...,0]))[...,None]
+        fret = lambda ws, x: (nn(ws, x[...,1][...,None]).flatten()*faux(x[...,0]))[...,None]
     else: # fret(x,y) = NN(x)*exp(-4*|y-y_pos|)
-        fret = lambda ws, x: (nn.apply(ws, x[...,0][...,None]).flatten()*faux(x[...,1]))[...,None]
+        fret = lambda ws, x: (nn(ws, x[...,0][...,None]).flatten()*faux(x[...,1]))[...,None]
     return fret
 
 
@@ -72,53 +67,62 @@ class Model(src.PINN):
 
         # nl = 16
         nl =5 
-        nl_bndr = 5
 
-        feat_domain = [2, nl, nl, 1] 
-        feat_bndr = [1, nl_bndr, nl_bndr, 1] 
+        acti = stax.Tanh
+        #acti =  stax.elementwise(lambda x: jax.nn.leaky_relu(x)**2)
+        acti1 = stax.elementwise(lambda x: jax.nn.leaky_relu(x+1)**2)
+        acti2 = stax.elementwise(lambda x: jax.nn.leaky_relu(x+0.33)**2)
+        acti3 = stax.elementwise(lambda x: jax.nn.leaky_relu(x-0.33)**2)
+        acti4 = stax.elementwise(lambda x: jnp.exp(-1.0*jnp.abs(x)))
+        
+        block_first = stax.serial(stax.FanOut(2),stax.parallel(stax.serial(stax.Dense(nl), acti, stax.Dense(nl), acti),stax.Dense(nl)),stax.FanInSum)
+        block = stax.serial(stax.FanOut(2),stax.parallel(stax.serial(stax.Dense(nl), acti, stax.Dense(nl), acti),stax.Dense(nl)),stax.FanInSum)
+        block2 = lambda n: stax.serial(stax.FanOut(2),stax.parallel(stax.serial(stax.Dense(n), acti, stax.Dense(n), acti),stax.Dense(n)),stax.FanInSum)
+        block3 = stax.serial(stax.FanOut(2),stax.parallel(stax.serial(stax.Dense(nl), acti3, stax.Dense(nl), acti2),stax.Dense(nl)),stax.FanInSum)
+
 
         # 1 PoleTip
-        self.add_flax_network('u1', feat_domain, True)
+        self.add_neural_network('u1',stax.serial(block_first,block,block, block, stax.Dense(1)),(-1,2)) # pole tip 
         # 2 IronYoke
-        self.add_flax_network('u2', feat_domain, True)
+        self.add_neural_network('u2',stax.serial(block_first,block,block, block, stax.Dense(1)),(-1,2)) # iron yoke 
         # 3 IronYoke Right Middle
-        self.add_flax_network('u3', feat_domain, True)
+        self.add_neural_network('u3',stax.serial(block_first,block,block, block, stax.Dense(1)),(-1,2)) # iron yoke right middle
         # 4 IronYoke Right Lower
-        self.add_flax_network('u4', feat_domain, True)
+        self.add_neural_network('u4',stax.serial(block_first,block,block, block, stax.Dense(1)),(-1,2)) # iron yoke right lower
         # 5 Air1
-        self.add_flax_network('u5', feat_domain, True)
+        self.add_neural_network('u5',stax.serial(block_first,block,block, block, stax.Dense(1)),(-1,2)) # air 1
         # 6 Air2 
-        self.add_flax_network('u6', feat_domain, True)
+        self.add_neural_network('u6',stax.serial(block_first,block,block, block, stax.Dense(1)),(-1,2)) # air 2
         # 7 Air3
-        self.add_flax_network('u7', feat_domain, True)
+        self.add_neural_network('u7',stax.serial(block_first,block,block, block, stax.Dense(1)),(-1,2)) # air 3
         # 8 Current
-        self.add_flax_network('u8', feat_domain, True)
+        self.add_neural_network('u8',stax.serial(block_first,block,block, block, stax.Dense(1)),(-1,2)) # copper
 
         # Interfaces to PoleTip 
-        self.add_flax_network('u15', feat_bndr, True)
-        self.add_flax_network('u16', feat_bndr, True)
-        self.add_flax_network('u12', feat_bndr, True)
+        self.add_neural_network('u15',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
+        self.add_neural_network('u16',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
+        self.add_neural_network('u12',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
 
         # Interfaces to Iron Yoke
-        self.add_flax_network('u28', feat_bndr, True)
-        self.add_flax_network('u23', feat_bndr, True)
+        self.add_neural_network('u28',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
+        self.add_neural_network('u23',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
 
         # Interfaces to Iron Yoke Right Middle
-        self.add_flax_network('u38', feat_bndr, True)
-        self.add_flax_network('u34', feat_bndr, True)
+        self.add_neural_network('u38',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
+        self.add_neural_network('u34',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
 
         # Interfaces to Iron Yoke Right Lower
-        self.add_flax_network('u47', feat_bndr, True)
+        self.add_neural_network('u47',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
 
         # Interfaces to Air1
-        self.add_flax_network('u56', feat_bndr, True)
+        self.add_neural_network('u56',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
         
         # Interfaces to Air2
-        self.add_flax_network('u67', feat_bndr, True)
-        self.add_flax_network('u68', feat_bndr, True)
+        self.add_neural_network('u67',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
+        self.add_neural_network('u68',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
         
         # Interfaces to Air3
-        self.add_flax_network('u78', feat_bndr, True)
+        self.add_neural_network('u78',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
 
         # Jump Functions in IronYoke and Current domain
         #self.add_neural_network('u2_0.3',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
@@ -127,12 +131,12 @@ class Model(src.PINN):
         # self.add_neural_network('u8_0.3',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
         # self.add_neural_network('u8_0.7',stax.serial(block_first, block, block, stax.Dense(1)),(-1,1))
 
-        self.add_trainable_parameter('u156',(1,), True) 
-        self.add_trainable_parameter('u238',(1,), True) 
-        self.add_trainable_parameter('u567',(1,), True) 
-        self.add_trainable_parameter('u678',(1,), True) 
-        self.add_trainable_parameter('u1268',(1,), True) 
-        self.add_trainable_parameter('u3478',(1,), True) 
+        self.add_trainable_parameter('u156',(1,)) 
+        self.add_trainable_parameter('u238',(1,)) 
+        self.add_trainable_parameter('u567',(1,)) 
+        self.add_trainable_parameter('u678',(1,)) 
+        self.add_trainable_parameter('u1268',(1,)) 
+        self.add_trainable_parameter('u3478',(1,)) 
 
         # self.add_trainable_parameter('u28_p0.33',(1,))
         # self.add_trainable_parameter('u28_n0.33',(1,))
@@ -280,7 +284,7 @@ class Model(src.PINN):
         alpha = 2
 
         # Solution on the domain
-        u = self.neural_networks['u1'].apply(ws['u1'],x) 
+        u = self.neural_networks['u1'](ws['u1'],x) 
         
         # Ansatz function: v(x,y) = (1-x)*(x+1)*(1+y)*(1-y)
         v = ((1 - x[...,0]) * (x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
@@ -302,7 +306,7 @@ class Model(src.PINN):
         alpha = 2
         
         # Solution on the domain
-        u = self.neural_networks['u2'].apply(ws['u2'],x) #+ self.jump1(ws['u2_0.3'], x) + self.jump2(ws['u2_0.7'], x)
+        u = self.neural_networks['u2'](ws['u2'],x) #+ self.jump1(ws['u2_0.3'], x) + self.jump2(ws['u2_0.7'], x)
         
         # Ansatz function which vanishes on the boundary (pyramid)  
         v = ((1 - x[...,0])*(x[...,0] + 1) * (1 - x[...,1])*(x[...,1] + 1))[...,None]
@@ -346,7 +350,7 @@ class Model(src.PINN):
         # 3. Domain : IronYoke Right Middle
         alpha = 2
 
-        u = self.neural_networks['u3'].apply(ws['u3'],x)
+        u = self.neural_networks['u3'](ws['u3'],x)
         # Ansatz Function: v(x,y) = (1-x)*(x+1)*(1-y)*(y+1)
         #------------------------------------------------------------------------------#
         v = ((1 - x[...,0]) * (x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
@@ -377,7 +381,7 @@ class Model(src.PINN):
         # 4. Domain : IronYoke Right Lower
         alpha = 2
 
-        u = self.neural_networks['u4'].apply(ws['u4'],x)
+        u = self.neural_networks['u4'](ws['u4'],x)
         # Ansatz Function: v(x,y) = (x+1)*(1-y)*(y+1)
         #------------------------------------------------------------------------------#
         v = ( (x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1) )[...,None]
@@ -406,7 +410,7 @@ class Model(src.PINN):
         # 5. Domain : Air1
         alpha = 2
 
-        u = self.neural_networks['u5'].apply(ws['u5'],x)
+        u = self.neural_networks['u5'](ws['u5'],x)
         
         # Ansatz Function: v(x,y) = (1-x)*(-)*(1-y)*(1+y)
         v = ((1 - x[...,1]) * (x[...,1] + 1) * (1 - x[...,0]))[...,None]
@@ -434,13 +438,17 @@ class Model(src.PINN):
         return u * v + w
         
 
-
+    def solution5a(self, ws, x):
+        w56 = self.interface56(ws['u56'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
+        return w56
+    
+    
     
     def solution6(self, ws, x):
         # 6. Domain : Air2 
         alpha = 2
 
-        u = self.neural_networks['u6'].apply(ws['u6'],x)
+        u = self.neural_networks['u6'](ws['u6'],x)
         # Ansatz Function: v(x,y) = (1-x)*(x+1)*(1-y)*(y+1)
         #------------------------------------------------------------------------------#
         v = ((1 - x[...,0]) * (x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
@@ -477,12 +485,16 @@ class Model(src.PINN):
         w = w67 + w65 + w68 + w61 + w156 + w1268 + w678 + w567
         return u * v + w
 
+    def solution6a(self, ws, x):
+        w65 =  self.interface65(ws['u56'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
+        return w65
+
 
     def solution7(self, ws, x):
         # 7. Domain: Air3
         alpha = 2
 
-        u = self.neural_networks['u7'].apply(ws['u7'],x)
+        u = self.neural_networks['u7'](ws['u7'],x)
         # Ansatz Function: v(x,y) = (x+1)*(1-y)*(y+1)
         #------------------------------------------------------------------------------#
         v = ((x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
@@ -524,7 +536,7 @@ class Model(src.PINN):
         alpha = 2
 
         # Inner degrees of freedom:
-        u = self.neural_networks['u8'].apply(ws['u8'],x)# + self.jump3(ws['u8_0.3'], x) + self.jump4(ws['u8_0.7'], x)
+        u = self.neural_networks['u8'](ws['u8'],x)# + self.jump3(ws['u8_0.3'], x) + self.jump4(ws['u8_0.7'], x)
         
         # Ansatz Function for inner dofs
         v = ((1 - x[...,1]) * (x[...,1] + 1) * (1 - x[...,0]) * (x[...,0] + 1))[...,None]
@@ -617,13 +629,16 @@ class Model(src.PINN):
         return lpde
     
 
+
+
+
 rnd_key = jax.random.PRNGKey(1235)
 geoms = [iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_1, air_2, air_3, current]
 model = Model(rnd_key)
 w0 = model.init_unravel()
 weights = model.weights 
-#plot_solution(rnd_key, model, weights)
-#plt.show()
+plot_solution(rnd_key, model, weights)
+plt.show()
 
 
 opt_type = 'ADAM'
@@ -635,13 +650,6 @@ get_compiled = jax.jit(lambda key: model.get_points_MC(batch_size, key))
 opt_init, opt_update, get_params = optimizers.adamax(step_size=stepsize)
 opt_state = opt_init(weights)
 params = get_params(opt_state)
-
-
-evaluate_error(model, params)
-exit()
-
-
-
 print(params['u567'], params['u1268'], params['u3478'], params['u3478'], params['u678']) 
 loss_grad = jax.jit(lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(ws, pts)))
 
@@ -667,8 +675,6 @@ for k in range(n_epochs):
 
 tme = datetime.datetime.now() - tme
 print('Elapsed time ', tme)
-save_models(params, '/home/mvt/iga_pinns/parameters/quad/')
-print('Erfolgreich gespeichert!!')
 plot_solution(rnd_key, model, params)
 plt.show()
 plot_bndr(model, weights, geoms)

@@ -205,7 +205,6 @@ def plot_geo_bnd(geom):
     pts = [iron_pole_pts, iron_yoke_pts, current_pts, air_3_pts, air_2_pts, air_1_pts, iron_yoke_r_mid_pts, iron_yoke_r_low_pts]
     #[plt.scatter(i[:,0], i[:,1]) for i in pts]
     #plt.show()
-    #exit()
     [np.reshape(i, (100**2, 2)) for i in pts]
     pts = np.array(pts)
     pts = np.reshape(pts, (pts.shape[0]*pts.shape[1], 2))
@@ -256,10 +255,9 @@ def plot_geo_bnd(geom):
 
 
 
-iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_1, air_2, air_3, current  = create_geometry(rnd_key)
-plot_geo_bnd(air_3)
-plt.show()
-exit()
+# iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_1, air_2, air_3, current  = create_geometry(rnd_key)
+# plot_geo_bnd(air_3)
+# plt.show()
 # iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_1, air_2, air_3, current  = create_geometry(rnd_key)
 
 
