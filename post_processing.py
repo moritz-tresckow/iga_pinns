@@ -51,45 +51,39 @@ def evaluate_error(model, params):
     ys = np.concatenate((x.flatten()[:,None],y.flatten()[:,None]),1)
     sol_model, vmin, vmax = evaluate_models(model, params, ys, x)
 
-    xy1 = iron_pole(ys)
-    xy2 = iron_yoke(ys)
-    xy3 = iron_yoke_r_mid(ys)
-    xy4 = iron_yoke_r_low(ys)
-
-    xy5 = air_1(ys)
-    xy6 = air_2(ys)
-    xy7 = air_3(ys)
-    xy8 = current(ys)
-    coors = np.concatenate((xy1, xy2, xy3, xy4, xy5, xy6, xy7, xy8))
-    np.savetxt('./coordinates_new.csv', coors, delimiter = ',', comments = '')
-    exit()
-
     vmin = np.amin(ref_values)
     vmax = np.amax(ref_values)
-    
+    vmin = 0
+    vmax = 1 
+    error = [] 
     print(vmin, vmax)
     plt.figure()
     norm = mpl.colors.Normalize(vmin = vmin, vmax = vmax)
     m = mpl.cm.ScalarMappable(norm=norm, cmap = 'viridis')
     m.set_array([])
+
     for i in range(8):
         step = 100**2
         local_coors = coordinates[i*step:(i+1)*step, :]
         local_vals = ref_values[i*step:(i+1)*step]
         local_x = local_coors[:,0]
         local_y = local_coors[:,1]
-        xx_ref = np.reshape(local_x, (100, 100))
-        yy_ref = np.reshape(local_y, (100, 100))
+        xx = np.reshape(local_x, (100, 100))
+        yy = np.reshape(local_y, (100, 100))
         uu = np.reshape(local_vals, (100, 100))
-        xx = coors[i][:,0].reshape(x.shape)
-        yy = coors[i][:,1].reshape(x.shape)
-        if i ==2:
-            plt.scatter(xx_ref.flatten(), yy_ref.flatten())
-            plt.scatter(xx.flatten(), yy.flatten())
-        print(np.sum(np.abs(xx_ref - xx)))
-        #plt.contourf(xx,yy,uu,norm = norm, levels = 100)
-    #plt.colorbar(m)
+        error_local = np.abs(sol_model[i] - uu)
+        error.append(np.sum(error_local))
+        plt.contourf(xx,yy,error_local,norm = norm, levels = 100)
+   
+    plt.colorbar(m)
     plt.show()
+    error = np.array(error)
+    error_tot = np.sum(error)
+    relative = error_tot/np.sum(np.abs(ref_values))
+    print('The relative error amounts to ', relative*100, ' %')
+
+
+    
 
 
 
