@@ -43,10 +43,10 @@ def evaluate_error(model, params):
     ys = np.concatenate((x.flatten()[:,None],y.flatten()[:,None]),1)
     sol_model, vmin, vmax = evaluate_models(model, params, ys, x)
 
-    vmin = np.amin(ref_values)
-    vmax = np.amax(ref_values)
-    vmin = 0
-    vmax = 0.2 
+    #vmin = np.amin(ref_values)
+    #vmax = np.amax(ref_values)
+    #vmin = 0
+    #vmax = 0.2 
     error = [] 
     print(vmin, vmax)
     plt.figure()
@@ -67,10 +67,7 @@ def evaluate_error(model, params):
         error.append(np.sum(error_local))
         relative_error_domain = np.sum(error_local)/np.sum(np.abs(uu))
         print('The relative error in domain ', i + 1, ' is ', relative_error_domain*100, ' %')
-        plt.contourf(xx,yy,error_local,norm = norm, levels = 100)
-        plt.colorbar(m)
-        plt.show()
-        exit()
+        plt.contourf(xx,yy,uu,norm = norm, levels = 100)
     plt.colorbar(m)
     plt.show()
     error = np.array(error)

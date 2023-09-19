@@ -45,7 +45,6 @@ def assemble_fem(mesh, domains, boundaries, mur, idx):
                 print('no such domain')
     
     # mu = Permeability(domains, degree=1)
-    
     v  = TrialFunction(CG)
     u  = TestFunction(CG)
     a  = inner(grad(u), grad(v))*dx
@@ -59,9 +58,9 @@ def assemble_fem(mesh, domains, boundaries, mur, idx):
     m = mpl.cm.ScalarMappable(norm=norm, cmap = 'viridis')
     m.set_array([])
     print('The minimum is ', vmin, ' and the maximum is ', vmax)
-    #plot(uh)
-    #plt.colorbar(m)
-    #plt.show()
+    plot(uh)
+    plt.colorbar(m)
+    plt.savefig('./my-fig.png')
     return sol, uh
 
 
@@ -69,6 +68,8 @@ def assemble_fem(mesh, domains, boundaries, mur, idx):
 mesh, domains, boundaries = load_mesh('./quad')
 print('Hello!')
 sol, uh = assemble_fem(mesh, domains, boundaries, 1, 3)
+
+
 coordinates = np.loadtxt('./coordinates.csv', delimiter = ',')
 ref_values = np.ones((coordinates.shape[0],1))
 for i in range(coordinates.shape[0]):

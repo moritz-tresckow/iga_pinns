@@ -217,12 +217,10 @@ class Model(src.PINN):
         #self.jump3 = jump_function2d(0, -0.33, self.neural_networks['u8_0.3'])
         #self.jump4 = jump_function2d(0,  0.33, self.neural_networks['u8_0.7'])
 
-        self.mu0 = 1
-        #self.mu0 = 0.001
-        self.mur = 1
-        #self.mur = 2000
-        self.J0 =  10000
-        #self.J0 =  100
+        self.mu0 = 0.001
+        self.mur = 2000
+        # self.J0 =  10000
+        self.J0 =  100
 
         self.k1 = 0.001
         self.k2 = 1.65/5000
@@ -601,10 +599,10 @@ class Model(src.PINN):
         #lpde4 = 0.5*(self.mu0)*jnp.dot(self.nu_model(bi4)*bi4, points['ws4']) 
 
 
-        lpde1 = 0.5*jnp.dot(jnp.einsum('mi,mij,mj->m',grad1,points['K1'],grad1), points['ws1'])  
-        lpde2 = 0.5*jnp.dot(jnp.einsum('mi,mij,mj->m',grad2,points['K2'],grad2), points['ws2'])  
-        lpde3 = 0.5*jnp.dot(jnp.einsum('mi,mij,mj->m',grad3,points['K3'],grad3), points['ws3'])  
-        lpde4 = 0.5*jnp.dot(jnp.einsum('mi,mij,mj->m',grad4,points['K4'],grad4), points['ws4'])
+        lpde1 = 0.5*(self.mur)*jnp.dot(jnp.einsum('mi,mij,mj->m',grad1,points['K1'],grad1), points['ws1'])  
+        lpde2 = 0.5*(self.mur)*jnp.dot(jnp.einsum('mi,mij,mj->m',grad2,points['K2'],grad2), points['ws2'])  
+        lpde3 = 0.5*(self.mur)*jnp.dot(jnp.einsum('mi,mij,mj->m',grad3,points['K3'],grad3), points['ws3'])  
+        lpde4 = 0.5*(self.mur)*jnp.dot(jnp.einsum('mi,mij,mj->m',grad4,points['K4'],grad4), points['ws4'])
 
         lpde5 = 0.5*jnp.dot(jnp.einsum('mi,mij,mj->m',grad5,points['K5'],grad5), points['ws5'])  
         lpde6 = 0.5*jnp.dot(jnp.einsum('mi,mij,mj->m',grad6,points['K6'],grad6), points['ws6'])  
@@ -636,14 +634,14 @@ opt_init, opt_update, get_params = optimizers.adam(step_size=stepsize)
 opt_state = opt_init(weights)
 params = get_params(opt_state)
 
-#evaluate_error(model, params)
+# evaluate_error(model, params)
 print(params['u567'], params['u1268'], params['u3478'], params['u3478'], params['u678']) 
 loss_grad = jax.jit(lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(ws, pts)))
 
 key = jax.random.PRNGKey(np.random.randint(32131233123))
-# points = model.get_points_MC(batch_size, key)
+points = model.get_points_MC(batch_size, key)
 def step(params, opt_state, key):
-    points = model.get_points_MC(batch_size, key)
+    # points = model.get_points_MC(batch_size, key)
     loss, grads = loss_grad(params, points)
     opt_state = opt_update(0, grads, opt_state)
     params = get_params(opt_state)
