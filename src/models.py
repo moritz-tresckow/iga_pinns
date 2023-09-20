@@ -41,10 +41,10 @@ class Res_MLP(nn.Module):
         return nn.tanh(x)
 
     x = inputs
-    x = act(nn.Dense(self.feat[0])(x))
-    x = act(nn.Dense(self.feat[1])(x))
+    x = nn.Dense(self.feat[0])(x)
+    x = nn.Dense(self.feat[1])(x)
     y = act(nn.Dense(self.feat[2])(x))
-    y = act(nn.Dense(self.feat[2])(y))
+    y = act(nn.Dense(self.feat[3])(y))
     x = x + y
     x = nn.Dense(self.feat[-1])(x)
     return x

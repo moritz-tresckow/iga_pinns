@@ -37,18 +37,19 @@ def evaluate_models(model, params, ys, x):
 
 def evaluate_error(model, params):
     coordinates = np.loadtxt('/home/mvt/iga_pinns/fem_ref/coordinates.csv', delimiter = ',')
-    ref_values = np.loadtxt('/home/mvt/iga_pinns/fem_ref/ref_values.csv', delimiter = ',')
+    ref_values = np.loadtxt('/home/mvt/iga_pinns/parameters/quad/ref_values.csv', delimiter = ',')
     iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_1, air_2, air_3, current  = create_geometry(rnd_key)
     x,y = np.meshgrid(np.linspace(-1,1,100),np.linspace(-1,1,100))
     ys = np.concatenate((x.flatten()[:,None],y.flatten()[:,None]),1)
     sol_model, vmin, vmax = evaluate_models(model, params, ys, x)
 
-    #vmin = np.amin(ref_values)
-    #vmax = np.amax(ref_values)
-    #vmin = 0
-    #vmax = 0.2 
-    error = [] 
     print(vmin, vmax)
+    vmin = np.amin(ref_values)
+    vmax = np.amax(ref_values)
+    print(vmin, vmax)
+    vmin = 0
+    vmax = 0.01 
+    error = [] 
     plt.figure()
     norm = mpl.colors.Normalize(vmin = vmin, vmax = vmax)
     m = mpl.cm.ScalarMappable(norm=norm, cmap = 'viridis')
@@ -67,7 +68,7 @@ def evaluate_error(model, params):
         error.append(np.sum(error_local))
         relative_error_domain = np.sum(error_local)/np.sum(np.abs(uu))
         print('The relative error in domain ', i + 1, ' is ', relative_error_domain*100, ' %')
-        plt.contourf(xx,yy,uu,norm = norm, levels = 100)
+        plt.contourf(xx,yy,error_local,norm = norm, levels = 100)
     plt.colorbar(m)
     plt.show()
     error = np.array(error)
