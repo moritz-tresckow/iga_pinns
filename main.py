@@ -70,10 +70,10 @@ class Model(src.PINN):
         super().__init__()
         self.key = rand_key
 
-        nl = 8 
-        nl_bndr = 5 
+        nl = 16 
+        nl_bndr = 8 
         load =True 
-        load_p =True 
+        load_p = True 
 
         feat_domain = [2, nl, nl, nl, 1] 
         feat_bndr = [1, nl_bndr, nl_bndr, nl_bndr, 1] 
@@ -227,8 +227,8 @@ class Model(src.PINN):
 
         #self.mu0 = 0.001
         self.mu0 = 1
-        # self.mur = 2000
-        self.mur =1 
+        self.mur = 1
+        # self.mur =1 
         self.J0 =  1000
 
         self.k1 = 0.001
@@ -276,7 +276,6 @@ class Model(src.PINN):
         points['ys8'] = ys
         points['ws8'] = Weights
         points['omega8'], points['G8'], points['K8'] = current.GetMetricTensors(ys)
-
         return points
 
 
@@ -499,8 +498,8 @@ class Model(src.PINN):
         w76 = self.interface76(ws['u67'],x) * ((x[...,0] + 1) * (1 - x[...,0]))[...,None]
         w74 = self.interface74(ws['u47'],x) * ((x[...,0] + 1))[...,None]
         w78 = (self.interface78(ws['u78'],x)                         \
-                 + ExpHat(x[...,1] + 0.33)[...,None] * ws['u87_n0.33']  \
-                 + ExpHat(x[...,1] - 0.33)[...,None] * ws['u87_p0.33']  \
+                #+ ExpHat(x[...,1] + 0.33)[...,None] * ws['u87_n0.33']  \
+                #+ ExpHat(x[...,1] - 0.33)[...,None] * ws['u87_p0.33']  \
                 ) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
         #------------------------------------------------------------------------------#
         # w76 = NN_{67}(x)  *  1/2(y+1) * (x+1)                      |
@@ -540,8 +539,8 @@ class Model(src.PINN):
         w86 =  self.interface86(ws['u68'],x) * ((x[...,0] + 1) * (1 - x[...,0]))[...,None] 
 
         w87 = (self.interface87(ws['u78'],x)                           \
-                + ExpHat(x[...,1] + 0.33)[...,None] * ws['u87_n0.33']  \
-                + ExpHat(x[...,1] - 0.33)[...,None] * ws['u87_p0.33']  \
+                #+ ExpHat(x[...,1] + 0.33)[...,None] * ws['u87_n0.33']  \
+                #+ ExpHat(x[...,1] - 0.33)[...,None] * ws['u87_p0.33']  \
                     ) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
 
         w83 = self.interface83(ws['u38'],x) * ((x[...,0] + 1) * (1 - x[...,0]))[...,None]
@@ -608,15 +607,16 @@ class Model(src.PINN):
         #lpde4 = 0.5*(self.mu0)*jnp.dot(self.nu_model(bi4)*bi4, points['ws4']) 
 
 
-        lpde1 = 0.5*(1/self.mur)*jnp.dot(jnp.einsum('mi,mij,mj->m',grad1,points['K1'],grad1), points['ws1'])  
-        lpde2 = 0.5*(1/self.mur)*jnp.dot(jnp.einsum('mi,mij,mj->m',grad2,points['K2'],grad2), points['ws2'])  
-        lpde3 = 0.5*(1/self.mur)*jnp.dot(jnp.einsum('mi,mij,mj->m',grad3,points['K3'],grad3), points['ws3'])  
-        lpde4 = 0.5*(1/self.mur)*jnp.dot(jnp.einsum('mi,mij,mj->m',grad4,points['K4'],grad4), points['ws4'])
+        lpde1 = 0.5 * 1/(self.mur*self.mu0) * jnp.dot(jnp.einsum('mi,mij,mj->m',grad1,points['K1'],grad1), points['ws1'])  
+        lpde2 = 0.5 * 1/(self.mur*self.mu0) * jnp.dot(jnp.einsum('mi,mij,mj->m',grad2,points['K2'],grad2), points['ws2'])  
+        lpde3 = 0.5 * 1/(self.mur*self.mu0) * jnp.dot(jnp.einsum('mi,mij,mj->m',grad3,points['K3'],grad3), points['ws3'])  
+        lpde4 = 0.5 * 1/(self.mur*self.mu0) * jnp.dot(jnp.einsum('mi,mij,mj->m',grad4,points['K4'],grad4), points['ws4'])
 
-        lpde5 = 0.5*jnp.dot(jnp.einsum('mi,mij,mj->m',grad5,points['K5'],grad5), points['ws5'])  
-        lpde6 = 0.5*jnp.dot(jnp.einsum('mi,mij,mj->m',grad6,points['K6'],grad6), points['ws6'])  
-        lpde7 = 0.5*jnp.dot(jnp.einsum('mi,mij,mj->m',grad7,points['K7'],grad7), points['ws7'])  
-        lpde8 = 0.5*jnp.dot(jnp.einsum('mi,mij,mj->m',grad8,points['K8'],grad8), points['ws8'])  - self.mu0*jnp.dot(self.J0*self.solution8(ws,points['ys8']).flatten()*points['omega8'] ,points['ws8'])
+        lpde5 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad5,points['K5'],grad5), points['ws5'])  
+        lpde6 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad6,points['K6'],grad6), points['ws6'])  
+        lpde7 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad7,points['K7'],grad7), points['ws7'])  
+        lpde8 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad8,points['K8'],grad8), points['ws8'])  \
+                - jnp.dot(self.J0*self.solution8(ws,points['ys8']).flatten()*points['omega8'] ,points['ws8'])
 
         return lpde1+lpde2+lpde3+lpde4+lpde5+lpde6+lpde7+lpde8
 
@@ -636,20 +636,18 @@ weights = model.weights
 
 opt_type = 'ADAM'
 batch_size = 8000
-stepsize = 0.00001
-n_epochs = 1000
+stepsize = 0.0001
+n_epochs = 500
 
 get_compiled = jax.jit(lambda key: model.get_points_MC(batch_size, key))
 opt_init, opt_update, get_params = optimizers.adamax(step_size=stepsize)
 opt_state = opt_init(weights)
 params = get_params(opt_state)
-
 evaluate_error(model, params)
-exit()
 print(params['u567'], params['u1268'], params['u3478'], params['u3478'], params['u678']) 
 loss_grad = jax.jit(lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(ws, pts)))
 
-key = jax.random.PRNGKey(np.random.randint(329023509863))
+key = jax.random.PRNGKey(np.random.randint(902763085663))
 points = model.get_points_MC(batch_size, key)
 def step(params, opt_state, key):
     # points = model.get_points_MC(batch_size, key)
