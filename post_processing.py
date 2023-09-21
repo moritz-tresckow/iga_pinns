@@ -17,7 +17,6 @@ config.update("jax_enable_x64", True)
 rnd_key = jax.random.PRNGKey(1234)
 
 def evaluate_models(model, params, ys, x):
-    
     model.weights = params
     weights = params 
     u1 = model.solution1(weights, ys).reshape(x.shape)
@@ -33,15 +32,24 @@ def evaluate_models(model, params, ys, x):
     vmax = max([u1.max(),u2.max(),u3.max(),u4.max(),u5.max(),u6.max(),u7.max(),u8.max()])
     return [u1, u2, u3, u4, u5, u6, u7, u8], vmin, vmax
                                                    
+def evaluate_quad_nonlin(model, params, ys, x):
+    model.weights = params
+    weights = params 
+    u1 = model.solution1(weights, ys).reshape(x.shape)
+    u2 = model.solution2(weights, ys).reshape(x.shape)
+    u3 = model.solution3(weights, ys).reshape(x.shape)
+    u4 = model.solution4(weights, ys).reshape(x.shape)
 
+    vmin = min([u1.min(),u2.min(),u3.min(),u4.min()]) 
+    vmax = max([u1.max(),u2.max(),u3.max(),u4.max()])
+    return [u1, u2, u3, u4], vmin, vmax
 
-def evaluate_error(model, params):
-    coordinates = np.loadtxt('/home/mvt/iga_pinns/fem_ref/coordinates.csv', delimiter = ',')
-    ref_values = np.loadtxt('/home/mvt/iga_pinns/parameters/quad/ref_values.csv', delimiter = ',')
-    iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_1, air_2, air_3, current  = create_geometry(rnd_key)
+def evaluate_error(model, params, evaluation_func, path_coor, path_vals):
+    coordinates = np.loadtxt(path_coor, delimiter = ',')
+    ref_values = np.loadtxt(path_vals, delimiter = ',')
     x,y = np.meshgrid(np.linspace(-1,1,100),np.linspace(-1,1,100))
     ys = np.concatenate((x.flatten()[:,None],y.flatten()[:,None]),1)
-    sol_model, vmin, vmax = evaluate_models(model, params, ys, x)
+    sol_model, vmin, vmax = evaluation_func(model, params, ys, x)
 
     print(vmin, vmax)
     vmin = np.amin(ref_values)
@@ -55,7 +63,7 @@ def evaluate_error(model, params):
     m = mpl.cm.ScalarMappable(norm=norm, cmap = 'viridis')
     m.set_array([])
 
-    for i in range(8):
+    for i in range(len(sol_model)):
         step = 100**2
         local_coors = coordinates[i*step:(i+1)*step, :]
         local_vals = ref_values[i*step:(i+1)*step]
@@ -79,6 +87,8 @@ def evaluate_error(model, params):
 
     
 
+
+      
 
 
 

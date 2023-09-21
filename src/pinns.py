@@ -29,7 +29,7 @@ class PINN():
         params, model = model_init(feat)
         if load == True:
             try:
-                params = load_data(model, './parameters/quad/' + name + '.txt')
+                params = load_data(model, './parameters/quad_simple/' + name + '.txt')
                 print('Success in loading ' + name)
             except:
                 pass
@@ -48,7 +48,7 @@ class PINN():
         self.weights[name] = -1 *jax.random.normal(self.key, shape)
         if load == True:
             try:
-                my_weight = np.loadtxt('./parameters/quad/' + name + '.csv', delimiter=',')
+                my_weight = np.loadtxt('./parameters/quad_simple/' + name + '.csv', delimiter=',')
                 my_weight = jnp.array(my_weight)
                 self.weights[name] = my_weight
                 print('Success in loading ' + name)

@@ -14,6 +14,7 @@ import scipy
 import scipy.optimize
 from jax.config import config
 from plot_scripts import plot_solution_quad_nonlin, plot_bndr_quad_nonlin
+from post_processing import *
 config.update("jax_enable_x64", True)
 rnd_key = jax.random.PRNGKey(1234)
 
@@ -114,7 +115,17 @@ def create_geometry(key, scale = 1):
 #%% Instantiate geometry parametrizations
 
 geom1, geom2, geom3, geom4 = create_geometry(rnd_key)
-
+def save_coordinates(geoms):
+    x,y = np.meshgrid(np.linspace(-1,1,100),np.linspace(-1,1,100))
+    ys = np.concatenate((x.flatten()[:,None],y.flatten()[:,None]),1)
+    outputs = []
+    for i in geoms:
+        out = i.__call__(ys)
+        outputs.append(out)
+    outputs = np.array(outputs)
+    outputs = np.reshape(outputs, (outputs.shape[0]*outputs.shape[1],2))
+    np.savetxt('./coordinates_simple.csv', outputs, delimiter = ',', comments = '')
+    exit()
 
 pts,_ = geom2.importance_sampling(1000)
 
@@ -172,27 +183,28 @@ class Model(src.PINN):
 
         nl = 10
         nl_bndr =5 
-        
+        load = True 
+        load_p = True 
         
         feat_domain = [2, nl, nl, 1] 
         feat_bndr = [1, nl_bndr, nl_bndr, 1] 
-        self.add_flax_network('u1', feat_domain, True)
-        self.add_flax_network('u2', feat_domain, True)
-        self.add_flax_network('u3', feat_domain, True)
-        self.add_flax_network('u4', feat_domain, True)
+        self.add_flax_network('u1', feat_domain, load)
+        self.add_flax_network('u2', feat_domain, load)
+        self.add_flax_network('u3', feat_domain, load)
+        self.add_flax_network('u4', feat_domain, load)
         
 
-        self.add_flax_network('u12', feat_bndr, True)
-        self.add_flax_network('u13', feat_bndr, True)
-        self.add_flax_network('u23', feat_bndr, True)
-        self.add_flax_network('u14', feat_bndr, True)
-        self.add_flax_network('u34', feat_bndr, True)
-        self.add_flax_network('u1_0.3', feat_bndr, True)
-        self.add_flax_network('u1_0.7', feat_bndr, True)
-        self.add_trainable_parameter('u123',(1,), True) # Iron - Air - Copper
-        self.add_trainable_parameter('u134',(1,), True) # Iron - Iron2 - Copper
-        self.add_trainable_parameter('u13_p0.33',(1,), True)
-        self.add_trainable_parameter('u13_n0.33',(1,), True)
+        self.add_flax_network('u12', feat_bndr, load)
+        self.add_flax_network('u13', feat_bndr, load)
+        self.add_flax_network('u23', feat_bndr, load)
+        self.add_flax_network('u14', feat_bndr, load)
+        self.add_flax_network('u34', feat_bndr, load)
+        self.add_flax_network('u1_0.3', feat_bndr, load)
+        self.add_flax_network('u1_0.7', feat_bndr, load)
+        self.add_trainable_parameter('u123',(1,), load_p) # Iron - Air - Copper
+        self.add_trainable_parameter('u134',(1,), load_p) # Iron - Iron2 - Copper
+        self.add_trainable_parameter('u13_p0.33',(1,), load_p)
+        self.add_trainable_parameter('u13_n0.33',(1,), load_p)
         
 
         # Domains: 1: Iron, 2: Air, 3: Copper, 4. Iron 2 (lower right)
@@ -231,9 +243,11 @@ class Model(src.PINN):
         self.jump1 = jump_function2d(0, -0.33, self.neural_networks['u1_0.3'])
         self.jump2 = jump_function2d(0,  0.33, self.neural_networks['u1_0.7'])
 
-        self.mu0 = 0.001
+        # self.mu0 = 0.001
+        self.mu0 = 1
         self.mur = 2000
-        self.J0 =  1000000
+        # self.J0 =  1000000
+        self.J0 =  1000
 
         self.k1 = 0.001
         self.k2 = 1.65/5000
@@ -421,16 +435,16 @@ class Model(src.PINN):
         grad1x = jnp.einsum('mij,mj->mi',points['G1'],grad1)
         grad4x = jnp.einsum('mij,mj->mi',points['G4'],grad4)
         
-        # lpde1 = 0.5*1/(self.mu0*self.mur)*jnp.dot(jnp.einsum('mi,mij,mj->m',grad1,self.points['K1'],grad1), self.points['ws1']) 
-        # lpde2 = 0.5*1/self.mu0*jnp.dot(jnp.einsum('mi,mij,mj->m',grad2,self.points['K2'],grad2), self.points['ws2'])  
-        # lpde3 = 0.5*1/self.mu0*jnp.dot(jnp.einsum('mi,mij,mj->m',grad3,self.points['K3'],grad3), self.points['ws3'])  - jnp.dot(self.J0*self.solution3(ws,self.points['ys3']).flatten()*self.points['omega3']  ,self.points['ws3'])
-        # lpde4 = 0.5*1/(self.mu0*self.mur)*jnp.dot(jnp.einsum('mi,mij,mj->m',grad4,self.points['K4'],grad4), self.points['ws4']) 
-        bi1 = jnp.einsum('mi,mij,mj->m',grad1,points['K1'],grad1)
-        bi4 = jnp.einsum('mi,mij,mj->m',grad4,points['K4'],grad4)
-        lpde1 = 0.5*(self.mu0)*jnp.dot(self.nu_model(bi1)*bi1, points['ws1']) 
-        lpde2 = 0.5*jnp.dot(jnp.einsum('mi,mij,mj->m',grad2,points['K2'],grad2), points['ws2'])  
-        lpde3 = 0.5*jnp.dot(jnp.einsum('mi,mij,mj->m',grad3,points['K3'],grad3), points['ws3'])  - self.mu0*jnp.dot(self.J0*self.solution3(ws,points['ys3']).flatten()*points['omega3']  ,points['ws3'])
-        lpde4 = 0.5*(self.mu0)*jnp.dot(self.nu_model(bi4)*bi4, points['ws4'])
+        lpde1 = 0.5*1/(self.mu0*self.mur)*jnp.dot(jnp.einsum('mi,mij,mj->m',grad1,points['K1'],grad1), points['ws1']) 
+        lpde2 = 0.5*1/self.mu0*jnp.dot(jnp.einsum('mi,mij,mj->m',grad2,points['K2'],grad2), points['ws2'])  
+        lpde3 = 0.5*1/self.mu0*jnp.dot(jnp.einsum('mi,mij,mj->m',grad3,points['K3'],grad3), points['ws3'])  - jnp.dot(self.J0*self.solution3(ws,points['ys3']).flatten()*points['omega3']  ,points['ws3'])
+        lpde4 = 0.5*1/(self.mu0*self.mur)*jnp.dot(jnp.einsum('mi,mij,mj->m',grad4,points['K4'],grad4), points['ws4']) 
+        #bi1 = jnp.einsum('mi,mij,mj->m',grad1,points['K1'],grad1)
+        #bi4 = jnp.einsum('mi,mij,mj->m',grad4,points['K4'],grad4)
+        #lpde1 = 0.5*(self.mu0)*jnp.dot(self.nu_model(bi1)*bi1, points['ws1']) 
+        #lpde2 = 0.5*jnp.dot(jnp.einsum('mi,mij,mj->m',grad2,points['K2'],grad2), points['ws2'])  
+        #lpde3 = 0.5*jnp.dot(jnp.einsum('mi,mij,mj->m',grad3,points['K3'],grad3), points['ws3'])  - self.mu0*jnp.dot(self.J0*self.solution3(ws,points['ys3']).flatten()*points['omega3']  ,points['ws3'])
+        #lpde4 = 0.5*(self.mu0)*jnp.dot(self.nu_model(bi4)*bi4, points['ws4'])
         return lpde1+lpde2+lpde3+lpde4
 
     def loss(self, ws, pts):
@@ -445,12 +459,15 @@ w0 = model.init_unravel()
 weights = model.weights 
 
 opt_type = 'ADAM'
-batch_size = 2000
-opt_init, opt_update, get_params = optimizers.adam(step_size=0.001)
+batch_size = 10000
+opt_init, opt_update, get_params = optimizers.adam(step_size=0.0001)
 opt_state = opt_init(weights)
 
 # get initial parameters
 params = get_params(opt_state)
+path_coor = './fem_ref/coordinates_simple.csv'
+path_vals = './fem_ref/ref_vals_simple.csv'
+evaluate_error(model, params, evaluate_quad_nonlin, path_coor, path_vals)
 print('Success in loading model...')
 # plot_solution_quad_nonlin(model, params, [geom1, geom2, geom3, geom4])
 # exit()
@@ -471,16 +488,16 @@ def step(params, opt_state, key):
 step_compiled = jax.jit(step)
 step_compiled(params, opt_state, rnd_key)
 
-n_epochs = 500
+n_epochs = 2500
 
 tme = datetime.datetime.now()
 for k in range(n_epochs):    
-    params, opt_state, loss = step_compiled(params, opt_state, jax.random.PRNGKey(np.random.randint(32131233123)))
+    params, opt_state, loss = step_compiled(params, opt_state, jax.random.PRNGKey(np.random.randint(32133123)))
     
     print('Epoch %d/%d - loss value %e'%(k+1, n_epochs, loss))
 # update params
 plot_solution_quad_nonlin(model, params, [geom1, geom2, geom3, geom4])
 tme = datetime.datetime.now() - tme
 print('Elapsed time ', tme)
-
-# save_models(params, './parameters/')
+evaluate_error(model, params, evaluate_quad_nonlin, path_coor, path_vals)
+save_models(params, './parameters/quad_simple/')
