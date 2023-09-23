@@ -25,11 +25,11 @@ class PINN():
         self.weights[name] = ann[0](self.key, input_shape)[1]
 
 
-    def add_flax_network(self, name, feat, load):
-        params, model = model_init(feat)
+    def add_flax_network(self, name, feat, act, load, path):
+        params, model = model_init(feat, act)
         if load == True:
             try:
-                params = load_data(model, './parameters/quad_simple/' + name + '.txt')
+                params = load_data(model, path + name + '.txt')
                 print('Success in loading ' + name)
             except:
                 pass
@@ -44,11 +44,11 @@ class PINN():
         self.neural_networks_initializers[name] = ann[0]
         self.weights[name] = ann[0](self.key, input_shape)[1]
 
-    def add_trainable_parameter(self, name, shape, load):
+    def add_trainable_parameter(self, name, shape, load, path):
         self.weights[name] = -1 *jax.random.normal(self.key, shape)
         if load == True:
             try:
-                my_weight = np.loadtxt('./parameters/quad_simple/' + name + '.csv', delimiter=',')
+                my_weight = np.loadtxt(path + name + '.csv', delimiter=',')
                 my_weight = jnp.array(my_weight)
                 self.weights[name] = my_weight
                 print('Success in loading ' + name)

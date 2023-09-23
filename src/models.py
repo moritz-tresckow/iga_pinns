@@ -2,6 +2,7 @@ import numpy as np
 import jax
 from typing import (Any, Callable, Iterable, List, Optional, Sequence, Tuple, Union)
 from jax import lax, random, numpy as jnp
+import jaxlib
 import flax
 from flax import linen as nn
 
@@ -33,27 +34,25 @@ def save_models(params, path):
 
 class Res_MLP(nn.Module):
   feat: Sequence[int]
+  act: jaxlib.xla_extension.PjitFunction
   
   @nn.compact
   def __call__(self, inputs):
 
-    def act(x):
-        return nn.tanh(x)
-
     x = inputs
     x = nn.Dense(self.feat[0])(x)
     x = nn.Dense(self.feat[1])(x)
-    y = act(nn.Dense(self.feat[2])(x))
-    y = act(nn.Dense(self.feat[3])(y))
+    y = self.act(nn.Dense(self.feat[2])(x))
+    y = self.act(nn.Dense(self.feat[3])(y))
     x = x + y
     x = nn.Dense(self.feat[-1])(x)
     return x
 
 
-def model_init(feat):
+def model_init(feat, act):
     x = jnp.linspace(-1,1,feat[0])
     key1, _ = random.split(random.PRNGKey(0), 2)
-    model = Res_MLP(feat)
+    model = Res_MLP(feat, act)
     params = model.init(key1, x)
     return params, model
 

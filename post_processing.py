@@ -56,7 +56,7 @@ def evaluate_error(model, params, evaluation_func, path_coor, path_vals):
     vmax = np.amax(ref_values)
     print(vmin, vmax)
     vmin = 0
-    vmax = 0.0075 
+    vmax = 0.3 
     error = [] 
     plt.figure()
     norm = mpl.colors.Normalize(vmin = vmin, vmax = vmax)
