@@ -72,7 +72,7 @@ class Model(src.PINN):
 
         nl = 16 
         nl_bndr = 5 
-        load = True
+        load = True 
         load_p = True 
         path = './parameters/quad/'
 
@@ -330,77 +330,90 @@ class Model(src.PINN):
 
 
     def solution1(self, ws, x):
+        #------------------------------------------------------------------------------#
         # 1. Domain : PoleTip 
-        alpha = 2
+        #------------------------------------------------------------------------------#
+        alpha = 1 # Exponent for the polyonomials on the coinciding subdomains
 
-        # Solution on the domain
+        # NN defined inside the domain
         u = self.neural_networks['u1'].apply(ws['u1'],x) 
         
         # Ansatz function: v(x,y) = (1-x)*(x+1)*(1+y)*(1-y)
+        #------------------------------------------------------------------------------#
         v = ((1 - x[...,0]) * (x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
 
-        # Interfaces along other domains
+        # Interfaces for the PoleTip domain
+        #------------------------------------------------------------------------------#
         w12 = self.interface12(ws['u12'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
         w15 = self.interface15(ws['u15'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
         w16 = self.interface16(ws['u16'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
+        #------------------------------------------------------------------------------#
+        # w12 = NN_{12}(x) * -1/2(y-1) * (1-x)*(x+1)
+        # w15 = NN_{15}(x) *  1/2(y+1) * (1-x)*(x+1)
+        # w16 = NN_{16}(y) *  1/2(x+1) * (1-y)*(y+1)
 
-        # Interfaces along other domains
+        # Function coinciding on multiple subdomains
+        #------------------------------------------------------------------------------#
         w156  = ws['u156'] *( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha 
         w1268 = ws['u1268']*( (x[...,0] + 1) * (1 - x[...,1]) )[...,None]**alpha 
-        
+        #------------------------------------------------------------------------------#
+        # w156  = u_{156}  * ((x+1)*(y+1))^alpha
+        # w1268 = u_{1268} * ((x+1)*(1-y))^alpha
+
         w = w12 + w15 + w16 + w156 + w1268   
         return u * v + w
 
     def solution2(self, ws, x):
+        #------------------------------------------------------------------------------#
         # 2. Domain : IronYoke
-        alpha = 2
+        #------------------------------------------------------------------------------#
+        alpha = 1
         
-        # Solution on the domain
+        # NN defined on the IronYoke 
         u = self.neural_networks['u2'].apply(ws['u2'],x) + self.jump1(ws['u2_0.3'], x) + self.jump2(ws['u2_0.7'], x)
         
-        # Ansatz function which vanishes on the boundary 
+        # Ansatz function: v(x,y) = (1-x)*(1+x)*(1-y)*(1+y)
+        #------------------------------------------------------------------------------#
         v = ((1 - x[...,0]) * (x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
         
-        # Function: v(x,y) = (1-x)*(1+x)*(1-y)*(1+y)
-
-        # Interface functions with Ansatz functions depending on location
-        # ws['u12'] -> IronYoke - PoleTip                  |      (1-x)*(1+x)
-        # ws['u23'] -> IronYoke - IronYoke Right Middle    |      (1-x)*(1+x)
-        # ws['u28'] -> IronYoke - Current                  |      (1-y)*(1+y)
- 
+        # Interface functions for the IronYoke domain 
+        #------------------------------------------------------------------------------#
         w21 = self.interface21(ws['u12'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
         w23 = self.interface23(ws['u23'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
-        w28 = (self.interface28(ws['u28'],x)                        \
+        w28 = jax.lax.stop_gradient((self.interface28(ws['u28'],x)                        \
                + ExpHat(x[...,1] + 0.33)[...,None]*ws['u28_n0.33']  \
                + ExpHat(x[...,1] - 0.33)[...,None]*ws['u28_p0.33']  \
-                )*(1 - x[...,1])[...,None] * (x[...,1] + 1)[...,None]
-        
-        # Interface functions for coil domain
+                )*(1 - x[...,1])[...,None] * (x[...,1] + 1)[...,None])
         #------------------------------------------------------------------------------#
-        # w21 = NN_{12}(x)*1/2(y+1) * (x+1)(1-x)               |   
-        # w28 = (                                              |   
-        #           NN_{28}(y)* 1/2(x+1)                       |
-        #         + exp(|y-0.33|) * u_{28l}                    |   
-        #         + exp(|y+0.33|) * u_{28r}                    |
-        #                                       )*(1-y)(y+1)   |   
-        # w23 = NN_{23}(x)*-1/2(y-1) * (1-x)(1+x)              |   
-        
+        # w21 = NN_{12}(x) *  1/2(y+1) * (x+1)(1-x)               |   
+        # w23 = NN_{23}(x) * -1/2(y-1) * (x+1)(1-x)               |   
+        # w28 = (                                                 |   
+        #           NN_{28}(y)* 1/2(x+1)                          |
+        #         + exp(|y-0.33|) * u_{28l}                       |   
+        #         + exp(|y+0.33|) * u_{28r}                       |
+        #                                       )*(1-y)(y+1)      |   
+       
+
+        # Function coinciding on three subdomains
+        #------------------------------------------------------------------------------#
         w1268 = ws['u1268'] * ( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha
         w238  =  ws['u238'] * ( (x[...,0] + 1) * (1 - x[...,1]) )[...,None]**alpha
-        
-        # Function coinciding on the three subdomains
         #------------------------------------------------------------------------------#
-        # w1268 = u_{1268} * ((x+1)*(y+1))^2   
-        # w156  = u_{156} * ((x+1)*(1-y))^2   
+        # w1268 = u_{1268} * ((x+1)*(y+1))^alpha   
+        # w238  = u_{238}  * ((x+1)*(1-y))^alpha   
 
         w = w28 + w21 + w23 + w1268 + w238
         return u * v + w
     
     def solution3(self, ws, x):
+        #------------------------------------------------------------------------------#
         # 3. Domain : IronYoke Right Middle
-        alpha = 2
+        #------------------------------------------------------------------------------#
+        alpha = 1
 
+        # NN defined on the IronYoke Right Middle
         u = self.neural_networks['u3'].apply(ws['u3'],x)
+
         # Ansatz Function: v(x,y) = (1-x)*(x+1)*(1-y)*(y+1)
         #------------------------------------------------------------------------------#
         v = ((1 - x[...,0]) * (x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
@@ -429,7 +442,7 @@ class Model(src.PINN):
     
     def solution4(self, ws, x):
         # 4. Domain : IronYoke Right Lower
-        alpha = 2
+        alpha = 1
 
         u = self.neural_networks['u4'].apply(ws['u4'],x)
         # Ansatz Function: v(x,y) = (x+1)*(1-y)*(y+1)
@@ -458,7 +471,7 @@ class Model(src.PINN):
 
     def solution5(self, ws, x):
         # 5. Domain : Air1
-        alpha = 2
+        alpha = 1
 
         u = self.neural_networks['u5'].apply(ws['u5'],x)
         
@@ -492,22 +505,17 @@ class Model(src.PINN):
     
     def solution6(self, ws, x):
         # 6. Domain : Air2 
-        alpha = 2
+        alpha = 1
 
         u = self.neural_networks['u6'].apply(ws['u6'],x)
         # Ansatz Function: v(x,y) = (1-x)*(x+1)*(1-y)*(y+1)
         #------------------------------------------------------------------------------#
         v = ((1 - x[...,0]) * (x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
-        # v = ((x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
         
         # Interface functions for IronYoke Right Middle 
         #------------------------------------------------------------------------------#
-        w65 =  self.interface65(ws['u56'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
-        # w65 = self.interface65(ws['u56'],x) * (x[...,0] + 1)[...,None]
-
+        w65 = self.interface65(ws['u56'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
         w67 = self.interface67(ws['u67'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
-        # w67 = self.interface67(ws['u67'],x) * ((x[...,1] + 1))[...,None]
-
         w68 = self.interface68(ws['u68'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
         w61 = self.interface61(ws['u16'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
         #------------------------------------------------------------------------------#
@@ -521,12 +529,12 @@ class Model(src.PINN):
         w567  = ws['u567']   *  ( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha
         w1268 = ws['u1268']  *  ( (1 - x[...,0]) * (1 - x[...,1]) )[...,None]**alpha
         w678  = ws['u678']   *  ( (x[...,0] + 1) * (1 - x[...,1]) )[...,None]**alpha
-        # Original w156  = ws['u156']   *  ( (1 - x[...,0]) * (x[...,1] + 1) )[...,None]**alpha
         w156  = ws['u156']   *  ( (1 - x[...,0]) * (x[...,1] + 1) )[...,None]**alpha
         #------------------------------------------------------------------------------#
-        # w567  = u_{567}  * ((x+1)*(y+1))^2    |
-        # w3467 = u_{3467} * ((1-x)*(1-y))^2    |
-        # w678  = u_{678}  * ((1-x)*(y+1))^2    |
+        # w567  = u_{567}  * ((x+1)*(y+1))^alpha    |
+        # w1268 = u_{1268} * ((1-x)*(1-y))^alpha    |
+        # w678  = u_{678}  * ((x+1)*(y+1))^alpha    |
+        # w156  = u_{156}  * ((1-x)*(y+1))^alpha    |
 
         w = w67 + w65 + w68 + w61 + w156 + w1268 + w678 + w567
         return u * v + w
@@ -534,7 +542,7 @@ class Model(src.PINN):
 
     def solution7(self, ws, x):
         # 7. Domain: Air3
-        alpha = 2
+        alpha = 1
 
         u = self.neural_networks['u7'].apply(ws['u7'],x)
         # Ansatz Function: v(x,y) = (x+1)*(1-y)*(y+1)
@@ -574,56 +582,53 @@ class Model(src.PINN):
 
 
     def solution8(self, ws, x):
+        #------------------------------------------------------------------------------#
         # 8. Domain : Copper (Coil)
-        alpha = 2
+        #------------------------------------------------------------------------------#
+        alpha = 1
 
-        # Inner degrees of freedom:
+        # NN defined inside the domain
         u = self.neural_networks['u8'].apply(ws['u8'],x) + self.jump3(ws['u8_0.3'], x) + self.jump4(ws['u8_0.7'], x)
         
-        # Ansatz Function for inner dofs
-        v = ((1 - x[...,1]) * (x[...,1] + 1) * (1 - x[...,0]) * (x[...,0] + 1))[...,None]
-        # v(x,y) = (1-x)*(x+1)*(1-y)*(1+y)
+        # Ansatz Function: v(x,y) = (1-x)*(x+1)*(1-y)*(y+1)
+        #------------------------------------------------------------------------------#
+        v = ((1 - x[...,0]) * (x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
 
-        
-        w86 =  self.interface86(ws['u68'],x) * ((x[...,0] + 1) * (1 - x[...,0]))[...,None] 
+        # Interface functions for Copper (Coil) domain
+        #------------------------------------------------------------------------------#
+        w82 = (self.interface82(ws['u28'],x)                            \
+                + ExpHat(x[...,1] + 0.33)[...,None]*ws['u28_n0.33']     \
+                + ExpHat(x[...,1] - 0.33)[...,None]*ws['u28_p0.33']     \
+                    ) * ((x[...,1] + 1) * (1 - x[...,1]))[...,None]
+
+        w83 =  self.interface83(ws['u38'],x) * ((x[...,0] + 1) * (1 - x[...,0]))[...,None]
+        w86 =  self.interface86(ws['u68'],x) * ((x[...,0] + 1) * (1 - x[...,0]))[...,None]
 
         w87 = (self.interface87(ws['u78'],x)                            \
                 #+ ExpHat(x[...,1] + 0.33)[...,None] * ws['u87_n0.33']  \
                 #+ ExpHat(x[...,1] - 0.33)[...,None] * ws['u87_p0.33']  \
                     ) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
-
-        w83 = self.interface83(ws['u38'],x) * ((x[...,0] + 1) * (1 - x[...,0]))[...,None]
-
-        w82 = (self.interface82(ws['u28'],x)                         \
-                + ExpHat(x[...,1] + 0.33)[...,None]*ws['u28_n0.33']  \
-                + ExpHat(x[...,1] - 0.33)[...,None]*ws['u28_p0.33']  \
-                    ) * ((x[...,1] + 1) * (1 - x[...,1]))[...,None]
-        
-        
-        # Interface functions for Copper (Coil) domain
         #------------------------------------------------------------------------------#
-        # w86 = NN_{68}(x) * 1/2(y+1) * (x+1) * (1-x)                    |   
-        # w87 = (                                                        |  
-        #           NN_{78}(y)* 1/2(x+1)                                 |
-        #         + exp(|y - 0.33|) * u_{13l}                            |   
-        #         + exp(|y + 0.33|) * u_{13r}                            |
-        #                                       )*(1-y)(y+1)             |  
-        #
-        # w83 = NN_{38}(x)*-1/2(y-1) * (1-x) * (x+1)                     |
-        # w82 = NN_{28}(y)*-1/2(x-1) * (1-y) * (y+1)                     |
-
-
+        # w82 = NN_{28}(y) * -1/2(x-1) * (1-y) * (y+1)                     |
+        # w83 = NN_{38}(x) * -1/2(y-1) * (1-x) * (x+1)                     |
+        # w86 = NN_{68}(x) *  1/2(y+1) * (x+1) * (1-x)                     |   
+        # w87 = (                                                          |  
+        #           NN_{78}(y)* 1/2(x+1)                                   |
+        #         + exp(|y - 0.33|) * u_{13l}                              |    
+        #         + exp(|y + 0.33|) * u_{13r}                              |
+        #                                       )*(1-y)(y+1)               |  
+        
+        # Function coinciding on multiple subdomains
+        #------------------------------------------------------------------------------#
         w678  = ws['u678']  * ( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha 
         w3478 = ws['u3478'] * ( (x[...,0] + 1) * (1 - x[...,1]) )[...,None]**alpha
         w238  = ws['u238']  * ( (1 - x[...,0]) * (1 - x[...,1]) )[...,None]**alpha 
         w1268 = ws['u1268'] * ( (1 - x[...,0]) * (x[...,1] + 1) )[...,None]**alpha
-
-        # Function coinciding on the three subdomains
         #------------------------------------------------------------------------------#
-        # w_678  = u_{678}  * ((x+1)*(y+1))^2   | 
-        # w_3478 = u_{3478} * ((x+1)*(1-y))^2   |  
-        # w_238  = u_{238}  * ((1-x)*(1-y))^2   | 
-        # w_1268 = u_{1268} * ((1-x)*(y+1))^2   |  
+        # w_678  = u_{678}  * ((x+1)*(y+1))^alpha   | 
+        # w_3478 = u_{3478} * ((x+1)*(1-y))^alpha   |  
+        # w_238  = u_{238}  * ((1-x)*(1-y))^alpha   | 
+        # w_1268 = u_{1268} * ((1-x)*(y+1))^alpha   |  
 
         w =  w82 + w87 + w86 + w83 + w1268 + w238 + w678 + w3478
         return u * v + w
@@ -660,18 +665,19 @@ class Model(src.PINN):
 
         lpde1 = 0.5 * 1/(self.mur*self.mu0) * jnp.dot(jnp.einsum('mi,mij,mj->m',grad1,points['K1'],grad1), points['ws1'])  
         lpde2 = 0.5 * 1/(self.mur*self.mu0) * jnp.dot(jnp.einsum('mi,mij,mj->m',grad2,points['K2'],grad2), points['ws2'])  
-        lpde3 = 0.5 * 1/(self.mur*self.mu0) * jnp.dot(jnp.einsum('mi,mij,mj->m',grad3,points['K3'],grad3), points['ws3'])  
-        lpde4 = 0.5 * 1/(self.mur*self.mu0) * jnp.dot(jnp.einsum('mi,mij,mj->m',grad4,points['K4'],grad4), points['ws4'])
+        #lpde3 = 0.5 * 1/(self.mur*self.mu0) * jnp.dot(jnp.einsum('mi,mij,mj->m',grad3,points['K3'],grad3), points['ws3'])  
+        #lpde4 = 0.5 * 1/(self.mur*self.mu0) * jnp.dot(jnp.einsum('mi,mij,mj->m',grad4,points['K4'],grad4), points['ws4'])
 
-        lpde5 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad5,points['K5'],grad5), points['ws5'])  
-        lpde6 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad6,points['K6'],grad6), points['ws6'])  
-        lpde7 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad7,points['K7'],grad7), points['ws7'])  
-        lpde8 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad8,points['K8'],grad8), points['ws8'])  \
-                - jnp.dot(self.J0*self.solution8(ws,points['ys8']).flatten()*points['omega8'] , points['ws8'])
+        #lpde5 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad5,points['K5'],grad5), points['ws5'])  
+        #lpde6 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad6,points['K6'],grad6), points['ws6'])  
+        #lpde7 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad7,points['K7'],grad7), points['ws7'])  
+        #lpde8 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad8,points['K8'],grad8), points['ws8'])  \
+                #        - jnp.dot(self.J0*self.solution8(ws,points['ys8']).flatten()*points['omega8'] , points['ws8'])
 
         # lpde9 = jnp.abs(jnp.dot(self.J0*self.solution8(ws,points['ys8']).flatten()*points['omega8'] , points['ws8']) - 4.96104063)
- 
-        return lpde1+lpde2+lpde3+lpde4+lpde5+lpde6+lpde7+lpde8# +lpde9
+        #lpde_iron = lpde1+lpde2+lpde3+lpde4
+        #lpde_air = lpde5+lpde6+lpde7+lpde8
+        return lpde1 + lpde2 
     
     def loss_constraint(self, ws, points):
         cc = src.operators.gradient(lambda x : model.solution8(ws,x))(points['ys_bnd8'])#[...,0,:]
@@ -696,9 +702,9 @@ weights = model.weights
 
 
 opt_type = 'ADAM'
-batch_size = 10000
+batch_size = 15000
 stepsize = 0.001
-n_epochs = 500
+n_epochs = 1000
 path_coor = './fem_ref/coordinates.csv'
 path_refs = './parameters/quad/mu_2k/ref_values.csv'
 
@@ -709,12 +715,10 @@ params = get_params(opt_state)
 
 
 points = model.get_points_MC(batch_size, rnd_key)
-
-print(jnp.dot(model.J0*points['omega8'] , points['ws8']))
 evaluate_error(model, params, evaluate_models, path_coor, path_refs)
 loss_grad = jax.jit(lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(ws, pts)))
 
-key = jax.random.PRNGKey(np.random.randint(908675663))
+key = jax.random.PRNGKey(np.random.randint(867566256443))
 points = model.get_points_MC(batch_size, key)
 def step(params, opt_state, key):
     # points = model.get_points_MC(batch_size, key)
@@ -733,7 +737,6 @@ for k in range(n_epochs):
     print(params['u567'], params['u1268'], params['u3478'], params['u3478'], params['u678']) 
     print('Epoch %d/%d - loss value %e'%(k+1, n_epochs, loss))
 # update params
-
 tme = datetime.datetime.now() - tme
 print('Elapsed time ', tme)
 save_models(params, './parameters/quad/')

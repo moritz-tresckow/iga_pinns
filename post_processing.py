@@ -56,7 +56,7 @@ def evaluate_error(model, params, evaluation_func, path_coor, path_vals):
     vmax = np.amax(ref_values)
     #print(vmin, vmax)
     vmin = 0
-    vmax = 0.3 
+    vmax = 4 
     error = [] 
     plt.figure()
     norm = mpl.colors.Normalize(vmin = vmin, vmax = vmax)
@@ -76,7 +76,10 @@ def evaluate_error(model, params, evaluation_func, path_coor, path_vals):
         error.append(np.sum(error_local))
         relative_error_domain = np.sum(error_local)/np.sum(np.abs(uu))
         print('The relative error in domain ', i + 1, ' is ', relative_error_domain*100, ' %')
-        plt.contourf(xx,yy,error_local,norm = norm, levels = 100)
+        if i == 0 or 1:
+            print('plot')
+            plt.contourf(xx,yy,uu,norm = norm, levels = 100)
+        else: pass
     plt.colorbar(m)
     plt.show()
     error = np.array(error)
