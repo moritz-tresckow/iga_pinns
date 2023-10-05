@@ -71,10 +71,10 @@ class Model(src.PINN):
         self.key = rand_key
 
         nl = 16 
-        nl_bndr = 3 
-        load = True 
+        nl_bndr = 5 
+        load = True
         load_p = True 
-        path = '/home/mvt/iga_pinns/parameters/quad/'
+        path = './parameters/quad/'
 
         feat_domain = [2, nl, nl, nl, 1] 
         act_domain = nn.tanh
@@ -231,7 +231,6 @@ class Model(src.PINN):
         #self.mu0 = 0.001
         self.mu0 = 1
         self.mur = 2000
-        # self.mur =1 
         self.J0 =  1000
 
         self.k1 = 0.001
@@ -298,7 +297,7 @@ class Model(src.PINN):
 
         def bnd_quadrature(dom, d, end, ys):
             def eval_dL(dom, d, input_vec):
-                DGys = current._eval_omega(input_vec)
+                DGys = dom._eval_omega(input_vec)
                 #diff = np.sqrt(DGys[:,0,d]**2 + DGys[:,1,d]**2)
                 diff = [DGys[:,0,d], DGys[:,1,d]]
                 return np.array(diff).T
@@ -324,7 +323,8 @@ class Model(src.PINN):
         
         points['ys_bnd8'] = ys_bnd
         points['omega_bnd8'] = diff
-        points['ws_bnd8'] = w_quad[:,jnp.newaxis]
+        points['ws_bnd8'] = w_quad#[:,jnp.newaxis]
+        
         return points
 
 
@@ -461,7 +461,7 @@ class Model(src.PINN):
         alpha = 2
 
         u = self.neural_networks['u5'].apply(ws['u5'],x)
-        False
+        
         # Ansatz Function: v(x,y) = (1-x)*(-)*(1-y)*(1+y)
         v = ((1 - x[...,1]) * (x[...,1] + 1) * (1 - x[...,0]))[...,None]
         
@@ -638,7 +638,6 @@ class Model(src.PINN):
     
     def loss_pde(self, ws, points):
         
-        
         grad1 = src.operators.gradient(lambda x : self.solution1(ws,x))(points['ys1'])[...,0,:]
         grad2 = src.operators.gradient(lambda x : self.solution2(ws,x))(points['ys2'])[...,0,:]
         grad3 = src.operators.gradient(lambda x : self.solution3(ws,x))(points['ys3'])[...,0,:]
@@ -669,13 +668,22 @@ class Model(src.PINN):
         lpde7 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad7,points['K7'],grad7), points['ws7'])  
         lpde8 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad8,points['K8'],grad8), points['ws8'])  \
                 - jnp.dot(self.J0*self.solution8(ws,points['ys8']).flatten()*points['omega8'] , points['ws8'])
-       
+
+        # lpde9 = jnp.abs(jnp.dot(self.J0*self.solution8(ws,points['ys8']).flatten()*points['omega8'] , points['ws8']) - 4.96104063)
  
-        return lpde1+lpde2+lpde3+lpde4+lpde5+lpde6+lpde7+lpde8
+        return lpde1+lpde2+lpde3+lpde4+lpde5+lpde6+lpde7+lpde8# +lpde9
+    
+    def loss_constraint(self, ws, points):
+        cc = src.operators.gradient(lambda x : model.solution8(ws,x))(points['ys_bnd8'])#[...,0,:]
+        cc = jnp.concatenate((cc[:,:,1], -1*cc[:,:,0]), axis = 1)
+        val = jnp.sum(jnp.sum(cc*points['omega_bnd8'], axis = 1) * points['ws_bnd8'])
+        lpde_constr = jnp.abs(val - 1.12) 
+        return lpde_constr
 
     def loss(self, ws, pts):
         lpde = self.loss_pde(ws, pts)
-        return lpde
+        # l_constr = self.loss_constraint(ws, points)
+        return lpde 
     
 
 rnd_key = jax.random.PRNGKey(1235)
@@ -688,11 +696,11 @@ weights = model.weights
 
 
 opt_type = 'ADAM'
-batch_size = 1500
-stepsize = 0.0005
-n_epochs = 10
-path_coor = '/home/mvt/iga_pinns/fem_ref/coordinates.csv'
-path_refs = '/home/mvt/iga_pinns/parameters/quad/mu_2k/ref_values.csv'
+batch_size = 10000
+stepsize = 0.001
+n_epochs = 500
+path_coor = './fem_ref/coordinates.csv'
+path_refs = './parameters/quad/mu_2k/ref_values.csv'
 
 get_compiled = jax.jit(lambda key: model.get_points_MC(batch_size, key))
 opt_init, opt_update, get_params = optimizers.adamax(step_size=stepsize)
@@ -700,20 +708,13 @@ opt_state = opt_init(weights)
 params = get_params(opt_state)
 
 
-
 points = model.get_points_MC(batch_size, rnd_key)
-cc = src.operators.gradient(lambda x : model.solution8(params,x))(points['ys_bnd8'])#[...,0,:]
-cc = jnp.concatenate((cc[:,:,1], -1*cc[:,:,0]), axis = 1)
-val = jnp.sum(cc*points['omega_bnd8']*points['ws_bnd8'])
-print(val)
-exit()
 
-# evaluate_error(model, params, evaluate_models, path_coor, path_refs)
-print(jnp.dot(model.solution8(params, points['ys_bnd8']).flatten()*points['omega_bnd8'], points['ws_bnd8']))
-exit()
+print(jnp.dot(model.J0*points['omega8'] , points['ws8']))
+evaluate_error(model, params, evaluate_models, path_coor, path_refs)
 loss_grad = jax.jit(lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(ws, pts)))
 
-key = jax.random.PRNGKey(np.random.randint(902763085663))
+key = jax.random.PRNGKey(np.random.randint(908675663))
 points = model.get_points_MC(batch_size, key)
 def step(params, opt_state, key):
     # points = model.get_points_MC(batch_size, key)
@@ -735,6 +736,6 @@ for k in range(n_epochs):
 
 tme = datetime.datetime.now() - tme
 print('Elapsed time ', tme)
-#save_models(params, '/home/mvt/iga_pinns/parameters/quad/')
-#print('Erfolgreich gespeichert!!')
+save_models(params, './parameters/quad/')
+print('Erfolgreich gespeichert!!')
 evaluate_error(model, params, evaluate_models, path_coor, path_refs)

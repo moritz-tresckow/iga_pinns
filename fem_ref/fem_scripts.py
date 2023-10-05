@@ -11,22 +11,26 @@ import matplotlib.pyplot as plt
 from quad_param import load_mesh
 np.set_printoptions(threshold=sys.maxsize)
 
-# mu0=4*np.pi*1e-7
-# mur = 1000
 
+def assemble_fem(mesh, domains, boundaries, mu, curr, idx_d):
+    def curl2D(v):
+        return as_vector((v.dx(1),-v.dx(0)))
+    def curl2D_H(h):
+        return h[1].dx(0)-h[0].dx(1)
 
-mu0 = 1
-curr = 1000
-def assemble_fem(mesh, domains, boundaries, mur, curr, idx):
+    idx_b = idx_d[0]
+    idx_c = idx_d[1]
+    mu0 = mu[0]
+    mur = mu[1]
     vertex  = mesh.coordinates()
     CG = FunctionSpace(mesh, 'CG', 1) # Continuous Galerkin
     # Define boundary condition
-    bc = DirichletBC(CG, Constant(0.0), boundaries, 16)
+    bc = DirichletBC(CG, Constant(0.0), boundaries, idx_b)
     # Define subdomain markers and integration measure
     dx = Measure('dx', domain=mesh, subdomain_data=domains)
     DG = FunctionSpace(mesh,"DG",0)
     J = Function(DG)
-    cells_idx = domains.where_equal(idx)
+    cells_idx = domains.where_equal(idx_c)
     J.vector()[:] = 0
     J.vector()[cells_idx] = curr
 
@@ -35,9 +39,9 @@ def assemble_fem(mesh, domains, boundaries, mur, curr, idx):
             super().__init__(**kwargs) # This part is new!
             self.markers = markers
         def eval_cell(self, values, x, cell):
-            if self.markers[cell.index] == 2:
+            if self.markers[cell.index] == 1:
                values[0] = 1/mu0 
-            elif self.markers[cell.index] == 1:
+            elif self.markers[cell.index] == 2:
                 values[0] = 1/(mu0*mur)
             elif self.markers[cell.index] == 3:
                 values[0] = 1/(mu0)
@@ -49,8 +53,13 @@ def assemble_fem(mesh, domains, boundaries, mur, curr, idx):
     u  = TestFunction(CG)
     a  = nu*inner(grad(u), grad(v))*dx
     L  = J*u*dx(3)
+    # ds = Measure('ds', domain = mesh, subdomain_data = boundaries, subdomain_id=6)
     uh = Function(CG)
     solve(a == L, uh, bc)
+
+    plt.savefig('./my-fig.png')
+    print(assemble(uh*J*dx(3)))
+    
     sol = uh.vector()[:]
     vmin = np.amin(sol)
     vmax = np.amax(sol)
@@ -63,30 +72,22 @@ def assemble_fem(mesh, domains, boundaries, mur, curr, idx):
     plt.savefig('./my-fig.png')
     return sol, uh
 
+def cal_ref_with_coors(uh, path):
+    coordinates = np.loadtxt('./coordinates.csv', delimiter = ',')
+    ref_values = np.ones((coordinates.shape[0],1))
+    for i in range(coordinates.shape[0]):
+        x = Point(coordinates[i,0], coordinates[i,1])
+        ref_values[i] = uh(x)
+    np.savetxt(path + 'ref_values_950.csv', ref_values, delimiter = ',', comments = '')
 
 
-mesh, domains, boundaries = load_mesh('./quad_simple')
-sol_curr, uh = assemble_fem(mesh, domains, boundaries, 2000, curr, 3)
 
-coordinates = np.loadtxt('./coordinates_simple.csv', delimiter = ',')
-ref_values = np.ones((coordinates.shape[0],1))
-for i in range(coordinates.shape[0]):
-    x = Point(coordinates[i,0], coordinates[i,1])
-    ref_values[i] = uh(x)
-np.savetxt('./ref_values_simple.csv', ref_values, delimiter = ',', comments = '')
-exit()
-ref_values = np.loadtxt('./ref_values.csv', delimiter = ',')
-vmin = np.amin(ref_values)
-vmax = np.amax(ref_values)
-
-for i in range(8):
-    step = 100**2
-    local_coors = coordinates[i*step:(i+1)*step, :]
-    local_vals = ref_values[i*step:(i+1)*step]
-    local_x = local_coors[:,0]
-    local_y = local_coors[:,1]
-    xx = np.reshape(local_x, (100, 100))
-    yy = np.reshape(local_y, (100, 100))
-    uu = np.reshape(local_vals, (100, 100))
-    plt.contourf(xx,yy,uu,vmin = vmin, vmax = vmax, levels = 100)
-plt.show()
+mesh, domains, boundaries = load_mesh('./quad')
+mu0 = 1
+mur = 1 
+mu = [mu0, mur]
+curr = 950
+idx = [5,3]
+sol_curr, uh = assemble_fem(mesh, domains, boundaries, mu, curr, idx)
+cal_ref_with_coors(uh, '/Users/moritzvontresckow/Desktop/iga_pinns/parameters/quad/no_mat/')
+idx_simple = [16,3]

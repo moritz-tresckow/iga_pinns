@@ -19,7 +19,6 @@ Point(15) = {0.1162132, 0.0737868, 0};
 Point(16) = {0.0912132, 0.0487868, 0};
 Point(17) = {0.1, 0.035, 0};
 
-
 //+
 Line(1) = {1, 2};
 //+
@@ -73,3 +72,10 @@ Physical Surface(2) = {2};
 Physical Surface(3) = {3};
 //+
 Physical Curve(5) = {1, 2, 3, 4, 5};
+//+
+Physical Curve(6) = {16, 17, 14};
+
+
+
+//+
+Physical Curve(6) += {16, 17};

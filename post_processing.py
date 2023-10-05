@@ -54,7 +54,7 @@ def evaluate_error(model, params, evaluation_func, path_coor, path_vals):
     print(vmin, vmax)
     vmin = np.amin(ref_values)
     vmax = np.amax(ref_values)
-    print(vmin, vmax)
+    #print(vmin, vmax)
     vmin = 0
     vmax = 0.3 
     error = [] 
