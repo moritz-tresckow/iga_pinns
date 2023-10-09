@@ -234,7 +234,7 @@ class Model(src.PINN):
         # Iron 2 -> Iron   |   NN(y)* 1/2(x+1) 
         self.interface41 = interface_function2d(1,1.0,-1.0,self.neural_networks['u14'])
         
-        # Iron_2 -> Cjax.random.PRNGKey(np.random.randint(32131233123))opper |   NN(y)*-1/2(x-1) 
+        # Iron_2 -> Copper |   NN(y)*-1/2(x-1) 
         self.interface34 = interface_function2d(1,-1.0,1.0,self.neural_networks['u34'])
         # Copper -> Iron_2 |   NN(x)* 1/2(y+1) 
         self.interface43 = interface_function2d(0,1.0,-1.0,self.neural_networks['u34'])

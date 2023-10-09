@@ -70,7 +70,7 @@ class Model(src.PINN):
         super().__init__()
         self.key = rand_key
 
-        nl = 8 
+        nl = 16 
         nl_bndr = 5 
         load = True 
         load_p = True 
@@ -79,16 +79,16 @@ class Model(src.PINN):
         feat_domain = [2, nl, nl, nl, 1] 
         act_domain = nn.tanh
         feat_bndr = [1, nl_bndr, nl_bndr, nl_bndr, 1] 
-        act_bndr = nn.relu
+        act_bndr = nn.tanh
 
         # 1 PoleTip
-        self.add_flax_network('u1', feat_domain, act_domain, load, path)
+        #self.add_flax_network('u1', feat_domain, act_domain, load, path)
         # 2 IronYoke                                               
-        self.add_flax_network('u2', feat_domain, act_domain, load, path)
+        #self.add_flax_network('u2', feat_domain, act_domain, load, path)
         # 3 IronYoke Right Middle                                  
-        self.add_flax_network('u3', feat_domain, act_domain, load, path)
+        #self.add_flax_network('u3', feat_domain, act_domain, load, path)
         # 4 IronYoke Right Lower                                  
-        self.add_flax_network('u4', feat_domain, act_domain, load, path)
+        #self.add_flax_network('u4', feat_domain, act_domain, load, path)
         # 5 Air1                                                
         self.add_flax_network('u5', feat_domain, act_domain, load, path)
         # 6 Air2                                                 
@@ -99,20 +99,20 @@ class Model(src.PINN):
         self.add_flax_network('u8', feat_domain, act_domain, load, path)
 
         # Interfaces to PoleTip 
-        self.add_flax_network('u15', feat_bndr, act_bndr, load, path)
-        self.add_flax_network('u16', feat_bndr, act_bndr, load, path)
-        self.add_flax_network('u12', feat_bndr, act_bndr, load, path)
+        #self.add_flax_network('u15', feat_bndr, act_bndr, load, path)
+        #self.add_flax_network('u16', feat_bndr, act_bndr, load, path)
+        #self.add_flax_network('u12', feat_bndr, act_bndr, load, path)
                                                               
         # Interfaces to Iron Yoke                            
-        self.add_flax_network('u28', feat_bndr, act_bndr, load, path)
-        self.add_flax_network('u23', feat_bndr, act_bndr, load, path)
+        #self.add_flax_network('u28', feat_bndr, act_bndr, load, path)
+        #self.add_flax_network('u23', feat_bndr, act_bndr, load, path)
                                                               
         # Interfaces to Iron Yoke Right Middle               
-        self.add_flax_network('u38', feat_bndr, act_bndr, load, path)
-        self.add_flax_network('u34', feat_bndr, act_bndr, load, path)
+        #self.add_flax_network('u38', feat_bndr, act_bndr, load, path)
+        #self.add_flax_network('u34', feat_bndr, act_bndr, load, path)
                                                          
         # Interfaces to Iron Yoke Right Lower             
-        self.add_flax_network('u47', feat_bndr, act_bndr, load, path)
+        #self.add_flax_network('u47', feat_bndr, act_bndr, load, path)
                                                            
         # Interfaces to Air1                                
         self.add_flax_network('u56', feat_bndr, act_bndr, load, path)
@@ -123,71 +123,71 @@ class Model(src.PINN):
                                                                
         # Interfaces to Air3                                    
         self.add_flax_network('u78', feat_bndr, act_bndr, load, path)
-        self.add_flax_network('u2_0.3', feat_bndr, act_bndr, load, path)
-        self.add_flax_network('u2_0.7', feat_bndr, act_bndr, load, path)
-        self.add_flax_network('u8_0.3', feat_bndr, act_bndr, load, path)
-        self.add_flax_network('u8_0.7', feat_bndr, act_bndr, load, path)
+        #self.add_flax_network('u2_0.3', feat_bndr, act_bndr, load, path)
+        #self.add_flax_network('u2_0.7', feat_bndr, act_bndr, load, path)
+        #self.add_flax_network('u8_0.3', feat_bndr, act_bndr, load, path)
+        #self.add_flax_network('u8_0.7', feat_bndr, act_bndr, load, path)
 
 
-        self.add_trainable_parameter('u156',(1,), load_p, path) 
+        #self.add_trainable_parameter('u156',(1,), load_p, path) 
         self.add_trainable_parameter('u238',(1,), load_p, path) 
         self.add_trainable_parameter('u567',(1,), load_p, path) 
         self.add_trainable_parameter('u678',(1,), load_p, path) 
         self.add_trainable_parameter('u1268',(1,), load_p, path) 
         self.add_trainable_parameter('u3478',(1,), load_p, path) 
 
-        self.add_trainable_parameter('u28_p0.33',(1,), load_p, path)
-        self.add_trainable_parameter('u28_n0.33',(1,), load_p, path)
+        #self.add_trainable_parameter('u28_p0.33',(1,), load_p, path)
+        #self.add_trainable_parameter('u28_n0.33',(1,), load_p, path)
 
-        self.add_trainable_parameter('u87_p0.33',(1,), load_p, path)
-        self.add_trainable_parameter('u87_n0.33',(1,), load_p, path)
+        #self.add_trainable_parameter('u87_p0.33',(1,), load_p, path)
+        #self.add_trainable_parameter('u87_n0.33',(1,), load_p, path)
         
 
         # Domains: 1: PoleTip, 2: IronYoke, 3: IronYoke Right Middle, 4. IronYoke Right Lower, 
         #          5. Air1,    6. Air2,     7. Air3,                  8. Current
         #------------------------------------------------------------------------------#
         # PoleTip -> IronYoke       |   NN_{12}(x)*-1/2(y-1)  => (1, -1, 1)   
-        self.interface12 = interface_function2d(1, -1.0, 1.0,self.neural_networks['u12'])
+        #self.interface12 = interface_function2d(1, -1.0, 1.0,self.neural_networks['u12'])
         # IronYoke -> PoleTip       |   NN_{12}(x)*1/2(y+1)   => (1, 1, -1) 
-        self.interface21 = interface_function2d(1, 1.0, -1.0,self.neural_networks['u12'])
+        #self.interface21 = interface_function2d(1, 1.0, -1.0,self.neural_networks['u12'])
 
-        self.interface15 = interface_function2d(1, 1.0, -1.0,self.neural_networks['u15'])
+        #self.interface15 = interface_function2d(1, 1.0, -1.0,self.neural_networks['u15'])
         # PoleTip -> Air1          |   NN_{15}(x)*1/2(y+1)   => (1, 1, -1) 
-        self.interface51 = interface_function2d(0, 1.0, -1.0,self.neural_networks['u15'])
+        #self.interface51 = interface_function2d(0, 1.0, -1.0,self.neural_networks['u15'])
         # ### Air1 -> PoleTip      |   NN_{15}(y)*1/2(x+1)   => (0, 1, -1) 
 
-        self.interface16 = interface_function2d(0, 1.0, -1.0,self.neural_networks['u16'])
+        #self.interface16 = interface_function2d(0, 1.0, -1.0,self.neural_networks['u16'])
         # PoleTip -> Air2      |   NN_{16}(y)*1/2(x+1)   => (0, 1, -1) 
-        self.interface61 = interface_function2d(0, -1.0, 1.0,self.neural_networks['u16'])
+        #self.interface61 = interface_function2d(0, -1.0, 1.0,self.neural_networks['u16'])
         # Air2 -> PoleTip      |   NN_{16}(y)*-1/2(x-1)  => (0, -1, 1) 
 
         #------------------------------------------------------------------------------#
         # IronYoke -> IronYoke Right Middle   |   NN(x)* -1/2(y-1)  => (1, -1, 1)
-        self.interface23 = interface_function2d(1, -1.0, 1.0,self.neural_networks['u23'])
+        #self.interface23 = interface_function2d(1, -1.0, 1.0,self.neural_networks['u23'])
         # IronYoke Right Middle -> IronYoke   |   NN(y)* -1/2(x-1) => (0, -1, 1)
-        self.interface32 = interface_function2d(0, -1.0, 1.0,self.neural_networks['u23'])
+        #self.interface32 = interface_function2d(0, -1.0, 1.0,self.neural_networks['u23'])
 
         # IronYoke -> Current   |   NN(y)* 1/2(x+1)  => (0, 1, -1) 
-        self.interface28 = interface_function2d(0, 1.0, -1.0,self.neural_networks['u28'])
+        #self.interface28 = interface_function2d(0, 1.0, -1.0,self.neural_networks['u28'])
         # Current -> IronYoke   |   NN(y)* -1/2(x-1) => (0, -1, 1) 
-        self.interface82 = interface_function2d(0, -1.0, 1.0,self.neural_networks['u28'])
+        #self.interface82 = interface_function2d(0, -1.0, 1.0,self.neural_networks['u28'])
         
         #------------------------------------------------------------------------------#
         # IronYoke Right Middle -> Current   |   NN(x)*1/2(y+1) => (1, 1, -1) 
-        self.interface38 = interface_function2d(1, 1.0, -1.0,self.neural_networks['u38'])
+        #self.interface38 = interface_function2d(1, 1.0, -1.0,self.neural_networks['u38'])
         # Current -> IronYoke Right Middle   |   NN(x)* -1/2(y-1) => (1, -1, 1) 
-        self.interface83 = interface_function2d(1, -1.0, 1.0,self.neural_networks['u38'])
+        #self.interface83 = interface_function2d(1, -1.0, 1.0,self.neural_networks['u38'])
         
         # IronYoke Right Middle -> IronYoke Right Lower |   NN_{34}(y)*1/2(x+1) => (0, 1, -1) 
-        self.interface34 = interface_function2d(0, 1.0, -1.0,self.neural_networks['u34'])
+        #self.interface34 = interface_function2d(0, 1.0, -1.0,self.neural_networks['u34'])
         # IronYoke Right Lower -> IronYoke Right Middle |   NN_{34}(y)* -1/2(x-1) => (0, -1, 1) 
-        self.interface43 = interface_function2d(0, -1.0, 1.0,self.neural_networks['u34'])
+        #self.interface43 = interface_function2d(0, -1.0, 1.0,self.neural_networks['u34'])
 
         #------------------------------------------------------------------------------#
         # IronYoke Right Lower -> Air3   |   NN(x)*1/2(y+1)   => (1, 1, -1) 
-        self.interface47 = interface_function2d(1, 1.0, -1.0,self.neural_networks['u47'])
+        #self.interface47 = interface_function2d(1, 1.0, -1.0,self.neural_networks['u47'])
         # Air3 -> IronYoke Right Lower   |   NN(x)* -1/2(y-1) => (1, -1, 1) 
-        self.interface74 = interface_function2d(1, -1.0, 1.0,self.neural_networks['u47'])
+        #self.interface74 = interface_function2d(1, -1.0, 1.0,self.neural_networks['u47'])
         
         #------------------------------------------------------------------------------#
         # Air1 -> Air2   |   NN(x)* 1/2(y+1)   => (1, 1, -1) 
@@ -214,18 +214,18 @@ class Model(src.PINN):
         
         
         # Functions defining the compactly supported solution
-        self.jump1 = jump_function2d(0, -0.33, self.neural_networks['u2_0.3'])
-        self.jump2 = jump_function2d(0,  0.33, self.neural_networks['u2_0.7'])
+        #self.jump1 = jump_function2d(0, -0.33, self.neural_networks['u2_0.3'])
+        #self.jump2 = jump_function2d(0,  0.33, self.neural_networks['u2_0.7'])
 
-        self.jump3 = jump_function2d(0, -0.33, self.neural_networks['u8_0.3'])
-        self.jump4 = jump_function2d(0,  0.33, self.neural_networks['u8_0.7'])
+        #self.jump3 = jump_function2d(0, -0.33, self.neural_networks['u8_0.3'])
+        #self.jump4 = jump_function2d(0,  0.33, self.neural_networks['u8_0.7'])
 
         #self.mu0 = 0.001
         self.mu0 = 1
-        self.mur = 2000
+        self.mur = 1e11
         self.J0 =  1000
 
-        self.k1 = 0.001
+        self.k1 = 0.0005
         self.k2 = 1.65/5000
         self.k3 = 0.5
         # 10 000
@@ -373,8 +373,8 @@ class Model(src.PINN):
         w21 = self.interface21(ws['u12'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
         w23 = self.interface23(ws['u23'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
         w28 = (self.interface28(ws['u28'],x)                        \
-               + ExpHat(x[...,1] + 0.33)[...,None]*ws['u28_n0.33']  \
-               + ExpHat(x[...,1] - 0.33)[...,None]*ws['u28_p0.33']  \
+                #+ ExpHat(x[...,1] + 0.33)[...,None]*ws['u28_n0.33']  \
+                #+ ExpHat(x[...,1] - 0.33)[...,None]*ws['u28_p0.33']  \
                 )*(1 - x[...,1])[...,None] * (x[...,1] + 1)[...,None]
         #------------------------------------------------------------------------------#
         # w21 = NN_{12}(x) *  1/2(y+1) * (x+1)(1-x)               |   
@@ -476,12 +476,17 @@ class Model(src.PINN):
         
         # Ansatz Function: v(x,y) = (1-x)*(1-y)*(1+y) -> (x+1) missing due to Neumann bc
         #------------------------------------------------------------------------------#
-        v = ((1 - x[...,1]) * (x[...,1] + 1) * (1 - x[...,0]))[...,None]
+        #v = ((1 - x[...,1]) * (x[...,1] + 1) * (1 - x[...,0]))[...,None]
+        v = ((1 - x[...,1]) * (x[...,1] + 1) )[...,None]
         
         # Interface functios for the Air1 domain
         #------------------------------------------------------------------------------#
-        w51 = self.interface51(ws['u15'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
+        # w51 = self.interface51(ws['u15'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
         w56 = self.interface56(ws['u56'],x) * ((x[...,0] + 1) * (1 - x[...,0]) )[...,None]
+        
+
+
+        # w56 = self.interface56(ws['u56'],x) * ((1 + x[...,0]) )[...,None]
         #------------------------------------------------------------------------------#
         # w51 = NN_{15}(y) * 1/2(x+1) * (1-y)(1+y)              |  
         # w56 = NN_{56}(x) * 1/2(y+1) * (1-x)                   |   
@@ -494,7 +499,7 @@ class Model(src.PINN):
         # w156 = u_{156} * ((x+1)*(y+1))^alpha   |
         # w567 = u_{567} * ((1-x)*(y+1))^alpha   |
 
-        w = w51 + w56 + w156 + w567
+        w =  w56 + w567 + w156#+ w51
         return u * v + w
         
 
@@ -511,12 +516,17 @@ class Model(src.PINN):
 
         # Ansatz Function: v(x,y) = (1-x)*(x+1)*(1-y)*(y+1)
         #------------------------------------------------------------------------------#
-        v = ((1 - x[...,0]) * (x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
+        # v = ((1 - x[...,0]) * (x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
+        v = ((1 - x[...,0]) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
         
         # Interface functions for Air2 domain 
         #------------------------------------------------------------------------------#
-        w61 = self.interface61(ws['u16'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
+        # w61 = self.interface61(ws['u16'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
         w65 = self.interface65(ws['u56'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
+        
+        # w65 = self.interface65(ws['u56'],x) * (1 - (x[...,0] ))[...,None]
+
+
         w67 = self.interface67(ws['u67'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
         w68 = self.interface68(ws['u68'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
         #------------------------------------------------------------------------------#
@@ -537,7 +547,7 @@ class Model(src.PINN):
         # w678  = u_{678}  * ((x+1)*(y+1))^alpha    |
         # w156  = u_{156}  * ((1-x)*(y+1))^alpha    |
 
-        w = w67 + w65 + w68 + w61 + w156 + w1268 + w678 + w567
+        w = w67 + w65 + w68 + w678 + w567 + w1268 + w156# + w61  
         return u * v + w
 
 
@@ -552,11 +562,12 @@ class Model(src.PINN):
 
         # Ansatz Function: v(x,y) = (x+1)*(1-y)*(y+1) -> (1-x) missing due to Neumann bc
         #------------------------------------------------------------------------------#
-        v = ((x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
+        # v = ((x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
+        v = ((x[...,0] + 1) * (1 - x[...,1]))[...,None]
         
         # Interface functions for the Air3 domain 
         #------------------------------------------------------------------------------#
-        w74 = self.interface74(ws['u47'],x) * ((x[...,0] + 1))[...,None]
+        # w74 = self.interface74(ws['u47'],x) * ((x[...,0] + 1))[...,None]
         w76 = self.interface76(ws['u67'],x) * ((x[...,0] + 1) * (1 - x[...,0]))[...,None]
         w78 = (self.interface78(ws['u78'],x)                            \
                 #+ ExpHat(x[...,1] + 0.33)[...,None] * ws['u87_n0.33']  \
@@ -579,7 +590,7 @@ class Model(src.PINN):
         # w3478 = u_{3478} * ((1-x)*(1-y))^alpha    |
         # w678  = u_{678}  * ((1-x)*(y+1))^alpha    |
 
-        w = w76 + w74 + w78 + w3478 + w678 + w567
+        w = w76 + w78 + w678 + w567+ w3478# + w74  
         return u * v + w
 
 
@@ -591,20 +602,21 @@ class Model(src.PINN):
         alpha = 1
 
         # NN defined in the coil domain
-        u = self.neural_networks['u8'].apply(ws['u8'],x) + self.jump3(ws['u8_0.3'], x) + self.jump4(ws['u8_0.7'], x)
+        u = self.neural_networks['u8'].apply(ws['u8'],x) #+ self.jump3(ws['u8_0.3'], x) + self.jump4(ws['u8_0.7'], x)
         
         # Ansatz Function: v(x,y) = (1-x)*(x+1)*(1-y)*(y+1)
         #------------------------------------------------------------------------------#
-        v = ((1 - x[...,0]) * (x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
+        #v = ((1 - x[...,0]) * (x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
+        v = ((1 - x[...,0]) * (1 - x[...,1]) )[...,None]
 
         # Interface functions for Copper (Coil) domain
         #------------------------------------------------------------------------------#
-        w82 = (self.interface82(ws['u28'],x)                            \
-                + ExpHat(x[...,1] + 0.33)[...,None]*ws['u28_n0.33']     \
-                + ExpHat(x[...,1] - 0.33)[...,None]*ws['u28_p0.33']     \
-                    ) * ((x[...,1] + 1) * (1 - x[...,1]))[...,None]
+        # w82 = (self.interface82(ws['u28'],x)                            \
+                #+ ExpHat(x[...,1] + 0.33)[...,None]*ws['u28_n0.33']     \
+                #+ ExpHat(x[...,1] - 0.33)[...,None]*ws['u28_p0.33']     \
+                #) * ((x[...,1] + 1) * (1 - x[...,1]))[...,None]
 
-        w83 =  self.interface83(ws['u38'],x) * ((x[...,0] + 1) * (1 - x[...,0]))[...,None]
+        # w83 =  self.interface83(ws['u38'],x) * ((x[...,0] + 1) * (1 - x[...,0]))[...,None]
         w86 =  self.interface86(ws['u68'],x) * ((x[...,0] + 1) * (1 - x[...,0]))[...,None]
 
         w87 = (self.interface87(ws['u78'],x)                            \
@@ -627,13 +639,14 @@ class Model(src.PINN):
         w3478 = ws['u3478'] * ( (x[...,0] + 1) * (1 - x[...,1]) )[...,None]**alpha
         w238  = ws['u238']  * ( (1 - x[...,0]) * (1 - x[...,1]) )[...,None]**alpha 
         w1268 = ws['u1268'] * ( (1 - x[...,0]) * (x[...,1] + 1) )[...,None]**alpha
+
         #------------------------------------------------------------------------------#
         # w_678  = u_{678}  * ((x+1)*(y+1))^alpha   | 
         # w_3478 = u_{3478} * ((x+1)*(1-y))^alpha   |  
         # w_238  = u_{238}  * ((1-x)*(1-y))^alpha   | 
         # w_1268 = u_{1268} * ((1-x)*(y+1))^alpha   |  
 
-        w =  w82 + w87 + w86 + w83 + w1268 + w238 + w678 + w3478
+        w =  w87 + w86+ w678+ w1268+ w3478 + w238# w82 + w83     
         return u * v + w
         
 
@@ -647,10 +660,10 @@ class Model(src.PINN):
     def loss_pde(self, ws, points):
         # Calculate the spatial gradients grad(u) = (u_x, u_y) with at the quadrature points
 
-        grad1 = src.operators.gradient(lambda x : self.solution1(ws,x))(points['ys1'])[...,0,:]
-        grad2 = src.operators.gradient(lambda x : self.solution2(ws,x))(points['ys2'])[...,0,:]
-        grad3 = src.operators.gradient(lambda x : self.solution3(ws,x))(points['ys3'])[...,0,:]
-        grad4 = src.operators.gradient(lambda x : self.solution4(ws,x))(points['ys4'])[...,0,:]
+        #grad1 = src.operators.gradient(lambda x : self.solution1(ws,x))(points['ys1'])[...,0,:]
+        #grad2 = src.operators.gradient(lambda x : self.solution2(ws,x))(points['ys2'])[...,0,:]
+        #grad3 = src.operators.gradient(lambda x : self.solution3(ws,x))(points['ys3'])[...,0,:]
+        #grad4 = src.operators.gradient(lambda x : self.solution4(ws,x))(points['ys4'])[...,0,:]
         grad5 = src.operators.gradient(lambda x : self.solution5(ws,x))(points['ys5'])[...,0,:]
         grad6 = src.operators.gradient(lambda x : self.solution6(ws,x))(points['ys6'])[...,0,:]
         grad7 = src.operators.gradient(lambda x : self.solution7(ws,x))(points['ys7'])[...,0,:]
@@ -671,10 +684,10 @@ class Model(src.PINN):
 
 
         #-----------------------------------Linear Iron---------------------------------------------------------------------# 
-        lpde1 = 0.5 * 1/(self.mur*self.mu0) * jnp.dot(jnp.einsum('mi,mij,mj->m',grad1,points['K1'],grad1), points['ws1'])  
-        lpde2 = 0.5 * 1/(self.mur*self.mu0) * jnp.dot(jnp.einsum('mi,mij,mj->m',grad2,points['K2'],grad2), points['ws2'])  
-        lpde3 = 0.5 * 1/(self.mur*self.mu0) * jnp.dot(jnp.einsum('mi,mij,mj->m',grad3,points['K3'],grad3), points['ws3'])  
-        lpde4 = 0.5 * 1/(self.mur*self.mu0) * jnp.dot(jnp.einsum('mi,mij,mj->m',grad4,points['K4'],grad4), points['ws4'])
+        #lpde1 = 0.5 * 1/(self.mur*self.mu0) * jnp.dot(jnp.einsum('mi,mij,mj->m',grad1,points['K1'],grad1), points['ws1'])  
+        #lpde2 = 0.5 * 1/(self.mur*self.mu0) * jnp.dot(jnp.einsum('mi,mij,mj->m',grad2,points['K2'],grad2), points['ws2'])  
+        #lpde3 = 0.5 * 1/(self.mur*self.mu0) * jnp.dot(jnp.einsum('mi,mij,mj->m',grad3,points['K3'],grad3), points['ws3'])  
+        #lpde4 = 0.5 * 1/(self.mur*self.mu0) * jnp.dot(jnp.einsum('mi,mij,mj->m',grad4,points['K4'],grad4), points['ws4'])
         #-------------------------------------------------------------------------------------------------------------------#
 
 
@@ -689,10 +702,9 @@ class Model(src.PINN):
         # lpde9 = jnp.abs(jnp.dot(self.J0*self.solution8(ws,points['ys8']).flatten()*points['omega8'] , points['ws8']) - 4.96104063)
 
         # Sum up losses from the individual subdomains
-        lpde_iron = lpde1+lpde2+lpde3+lpde4
+        #lpde_iron = lpde1+lpde2+lpde3+lpde4
         lpde_air  = lpde5+lpde6+lpde7+lpde8
-        return lpde_iron + lpde_air
-    
+        return lpde_air #+ lpde_iron     
     def loss_constraint(self, ws, points):
         cc = src.operators.gradient(lambda x : model.solution8(ws,x))(points['ys_bnd8'])#[...,0,:]
         cc = jnp.concatenate((cc[:,:,1], -1*cc[:,:,0]), axis = 1)
@@ -713,9 +725,9 @@ weights = model.weights                 # Retrieve weights to initialize the opt
 
 #------------------------------Optimization parameters ------------------------------------#
 opt_type = 'ADAMax'                                                         # Optimizer name
-batch_size = 15000                                                          # Number of sample points for quadrature (MC integration) 
-stepsize = 0.0001                                                           # Stepsize for Optimizer aka. learning rate
-n_epochs = 1000                                                             # Number of optimization epochs
+batch_size = 10000                                                          # Number of sample points for quadrature (MC integration) 
+stepsize = 0.005                                                           # Stepsize for Optimizer aka. learning rate
+n_epochs = 750                                                             # Number of optimization epochs
 path_coor = './fem_ref/coordinates.csv'                                     # Path to coordinates to evaluate the NN solution
 path_refs = './parameters/quad/mu_2k/ref_values.csv'                        # FEM reference solution
 
@@ -730,10 +742,9 @@ params = get_params(opt_state)                                              # Re
 
 
 evaluate_error(model, params, evaluate_models, path_coor, path_refs)        # Evaluate the model error before training
-exit()
 loss_grad = jax.jit(lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(ws, pts))) # JIT compile the loss function before training
 
-key = jax.random.PRNGKey(np.random.randint(8676256443))                     # Generate an PRND key to initialize the MC sampling routine
+key = jax.random.PRNGKey(np.random.randint(74563))                     # Generate an PRND key to initialize the MC sampling routine
 points = model.get_points_MC(batch_size, key)                               # Generate the MC samples
 
 #------------------------------Optimization Step-------------------------------------------#
@@ -754,7 +765,7 @@ tme = datetime.datetime.now()
 #------------------------------Optimization Loop-------------------------------------------#
 for k in range(n_epochs):    
     params, opt_state, loss = step_compiled(params, opt_state, key)
-    print(params['u567'], params['u1268'], params['u3478'], params['u3478'], params['u678']) 
+    # print(params['u567'], params['u1268'], params['u3478'], params['u3478'], params['u678']) 
     print('Epoch %d/%d - loss value %e'%(k+1, n_epochs, loss))
 #------------------------------------------------------------------------------------------#
 

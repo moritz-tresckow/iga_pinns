@@ -20,10 +20,14 @@ rnd_key = jax.random.PRNGKey(1234)
 def evaluate_models(model, params, ys, x):
     model.weights = params
     weights = params 
-    u1 = model.solution1(weights, ys).reshape(x.shape)
-    u2 = model.solution2(weights, ys).reshape(x.shape)
-    u3 = model.solution3(weights, ys).reshape(x.shape)
-    u4 = model.solution4(weights, ys).reshape(x.shape)
+    #u1 = model.solution1(weights, ys).reshape(x.shape)
+    #u2 = model.solution2(weights, ys).reshape(x.shape)
+    #u3 = model.solution3(weights, ys).reshape(x.shape)
+    #u4 = model.solution4(weights, ys).reshape(x.shape)
+    u1=np.array(0)
+    u2=np.array(0)
+    u3=np.array(0)
+    u4=np.array(0)
     u5 = model.solution5(weights, ys).reshape(x.shape)
     u6 = model.solution6(weights, ys).reshape(x.shape)
     u7 = model.solution7(weights, ys).reshape(x.shape)
@@ -64,17 +68,19 @@ def evaluate_error(model, params, evaluation_func, path_coor, path_vals):
     sol_model, vmin, vmax = evaluation_func(model, params, ys, x)
 
     print(vmin, vmax)
-    #vmin = np.amin(ref_values)
-    #vmax = np.amax(ref_values)
-    #vmin = 0
-    #vmax = 1 
+    vmin = np.amin(ref_values)
+    vmax = np.amax(ref_values)
+    print(vmin, vmax)
+    vmin = 0
+    vmax = 0.3 
     error = [] 
     plt.figure()
     norm = mpl.colors.Normalize(vmin = vmin, vmax = vmax)
     m = mpl.cm.ScalarMappable(norm=norm, cmap = 'viridis')
     m.set_array([])
 
-    for i in range(len(sol_model)):
+    for i in [4,5,6,7]:
+        factor = 1
         step = 100**2
         local_coors = coordinates[i*step:(i+1)*step, :]
         local_vals = ref_values[i*step:(i+1)*step]
@@ -83,13 +89,17 @@ def evaluate_error(model, params, evaluation_func, path_coor, path_vals):
         xx = np.reshape(local_x, (100, 100))
         yy = np.reshape(local_y, (100, 100))
         uu = np.reshape(local_vals, (100, 100))
-        error_local = np.abs(sol_model[i] - uu)
+        error_local = np.abs(factor*sol_model[i] - uu)
         error.append(np.sum(error_local))
         relative_error_domain = np.sum(error_local)/np.sum(np.abs(uu))
         print('The relative error in domain ', i + 1, ' is ', relative_error_domain*100, ' %')
-        plt.contourf(xx, yy, sol_model[i], norm = norm, levels = 100)
+        #plt.contourf(xx, yy, sol_model[i], norm = norm, levels = 100)
+        plt.contourf(xx, yy, error_local, norm = norm, levels = 100)
+        # plt.contourf(xx, yy, uu, norm = norm, levels = 100)
     plt.colorbar(m)
-    plt.show()
+    # plt.show()
+    plt.savefig('./reduced_fig.png')
+    exit()
     error = np.array(error)
     error_tot = np.sum(error)
     relative = error_tot/np.sum(np.abs(ref_values))
