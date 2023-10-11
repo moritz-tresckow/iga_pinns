@@ -76,7 +76,7 @@ def calc_eq(meshfile, mu, js, coordinates):
     vertices = V.tabulate_dof_coordinates() 
     #vertices = vertices[:,0:2]
 
-    boundary_markers = [5] # 17: homogeneous DBc, 16: inhomogeneous DBc
+    boundary_markers = [5,6] # 17: homogeneous DBc, 16: inhomogeneous DBc
     dirichlet_vals = [0]	
     material_markers = [1,2,3] # 15: outer space, 14: conductive area 
     mu0 = mu[0]
@@ -170,7 +170,6 @@ def calc_eq(meshfile, mu, js, coordinates):
     return sol 
 
 
-
 def cal_functional(vals, msh):
     V = dolfinx.fem.FunctionSpace(msh, ('Lagrange',1))
     u = dolfinx.fem.Function(V)
@@ -192,7 +191,7 @@ def plot_on_coordinates(ref_values):
     m = mpl.cm.ScalarMappable(norm=norm, cmap = 'viridis')
     m.set_array([])
 
-    for i in range(8):
+    for i in [4,5,6,7]:
         step = 100**2
         local_coors = coordinates[i*step:(i+1)*step, :]
         local_vals = ref_values[i*step:(i+1)*step]
@@ -205,10 +204,11 @@ def plot_on_coordinates(ref_values):
     plt.colorbar(m)
     plt.savefig('./new_pic.png')
 
-meshfile = './fem_ref/fenicsx_mesh/quad'
-path_coors = './fem_ref/coordinates.csv'
-coordinates = np.loadtxt(path_coors, delimiter = ',')
-ref_values = calc_eq(meshfile, [1,2000], 1000, coordinates)
-plot_on_coordinates(ref_values)
 
 
+#meshfile = './fem_ref/fenicsx_mesh/quad/quad_dirichlet/quad_dirichlet'
+#path_coors = './fem_ref/coordinates.csv'
+#coordinates = np.loadtxt(path_coors, delimiter = ',')
+#ref_values = calc_eq(meshfile, [1,1e11], 1000, coordinates)
+#print(np.amax(ref_values), np.amin(ref_values))
+#plot_on_coordinates(ref_values)

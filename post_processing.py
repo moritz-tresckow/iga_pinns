@@ -20,6 +20,23 @@ rnd_key = jax.random.PRNGKey(1234)
 def evaluate_models(model, params, ys, x):
     model.weights = params
     weights = params 
+    u1 = model.solution1(weights, ys).reshape(x.shape)
+    u2 = model.solution2(weights, ys).reshape(x.shape)
+    u3 = model.solution3(weights, ys).reshape(x.shape)
+    u4 = model.solution4(weights, ys).reshape(x.shape)
+    u5 = model.solution5(weights, ys).reshape(x.shape)
+    u6 = model.solution6(weights, ys).reshape(x.shape)
+    u7 = model.solution7(weights, ys).reshape(x.shape)
+    u8 = model.solution8(weights, ys).reshape(x.shape)
+
+    vmin = min([u1.min(),u2.min(),u3.min(),u4.min(),u5.min(),u6.min(),u7.min(),u8.min()]) 
+    vmax = max([u1.max(),u2.max(),u3.max(),u4.max(),u5.max(),u6.max(),u7.max(),u8.max()])
+    return [u1, u2, u3, u4, u5, u6, u7, u8], vmin, vmax
+
+
+def evaluate_air(model, params, ys, x):
+    model.weights = params
+    weights = params 
     #u1 = model.solution1(weights, ys).reshape(x.shape)
     #u2 = model.solution2(weights, ys).reshape(x.shape)
     #u3 = model.solution3(weights, ys).reshape(x.shape)
@@ -58,9 +75,9 @@ def cal_L2_error(ref_val, cal_val, msh):
 
 
 
-def evaluate_error(model, params, evaluation_func, path_coor, path_vals):
+def evaluate_error(model, params, evaluation_func, model_idxs, path_coor, path_vals):
     coordinates = np.loadtxt(path_coor, delimiter = ',')
-    meshfile = './fem_ref/fenicsx_mesh/quad' 
+    meshfile = './fem_ref/fenicsx_mesh/quad/quad_dirichlet/quad_dirichlet' 
     ref_values = calc_eq(meshfile, [model.mu0, model.mur], model.J0, coordinates)
     # ref_values = np.loadtxt(path_vals, delimiter = ',')
     x,y = np.meshgrid(np.linspace(-1,1,100),np.linspace(-1,1,100))
@@ -72,15 +89,14 @@ def evaluate_error(model, params, evaluation_func, path_coor, path_vals):
     vmax = np.amax(ref_values)
     print(vmin, vmax)
     vmin = 0
-    vmax = 0.3 
+    vmax = 0.6 
     error = [] 
     plt.figure()
     norm = mpl.colors.Normalize(vmin = vmin, vmax = vmax)
     m = mpl.cm.ScalarMappable(norm=norm, cmap = 'viridis')
     m.set_array([])
 
-    for i in [4,5,6,7]:
-        factor = 1
+    for i in model_idxs:
         step = 100**2
         local_coors = coordinates[i*step:(i+1)*step, :]
         local_vals = ref_values[i*step:(i+1)*step]
@@ -89,18 +105,18 @@ def evaluate_error(model, params, evaluation_func, path_coor, path_vals):
         xx = np.reshape(local_x, (100, 100))
         yy = np.reshape(local_y, (100, 100))
         uu = np.reshape(local_vals, (100, 100))
-        error_local = np.abs(factor*sol_model[i] - uu)
+        error_local = np.abs(sol_model[i] - uu)
+        print(i+1, np.sum(error_local))
+        print(i+1, np.sum(uu))
         error.append(np.sum(error_local))
         relative_error_domain = np.sum(error_local)/np.sum(np.abs(uu))
         print('The relative error in domain ', i + 1, ' is ', relative_error_domain*100, ' %')
-        #plt.contourf(xx, yy, sol_model[i], norm = norm, levels = 100)
+        # plt.contourf(xx, yy, sol_model[i], norm = norm, levels = 100)
         plt.contourf(xx, yy, error_local, norm = norm, levels = 100)
-        # plt.contourf(xx, yy, uu, norm = norm, levels = 100)
+        #plt.contourf(xx, yy, uu, norm = norm, levels = 100)
     plt.colorbar(m)
     # plt.show()
-    plt.savefig('./reduced_fig.png')
-    exit()
-    error = np.array(error)
+    plt.savefig('./complete_fig.png')
     error_tot = np.sum(error)
     relative = error_tot/np.sum(np.abs(ref_values))
     print('The relative error amounts to ', relative*100, ' %')
