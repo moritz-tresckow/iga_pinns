@@ -116,6 +116,7 @@ class Model(src.PINN):
                                                            
         # Interfaces to Air1                                
         self.add_flax_network('u56', feat_bndr, act_bndr, load, path)
+        self.add_flax_network('u5neum', feat_bndr, act_bndr, load, path)
                                                              
         # Interfaces to Air2                                  
         self.add_flax_network('u67', feat_bndr, act_bndr, load, path)
@@ -352,7 +353,6 @@ class Model(src.PINN):
         ys_, _, _ = bnd_quadrature(iron_yoke_r_low, 0, 1, ys)
         plt.scatter(iron_yoke_r_low.__call__(ys_)[:,0], iron_yoke_r_low.__call__(ys_)[:,1])
         plt.savefig('bnd_pic.png')
-        exit()
         return points
 
 
@@ -512,14 +512,20 @@ class Model(src.PINN):
         
         # Ansatz Function: v(x,y) = (1-x)*(1-y)*(1+y) -> (x+1) missing due to Neumann bc
         #------------------------------------------------------------------------------#
-        v = ((1 - x[...,1]) * (x[...,1] + 1) * (1 - x[...,0]))[...,None]
-        # v = ((1 - x[...,1]) * (x[...,1] + 1) )[...,None]
+        # v = ((1 - x[...,1]) * (x[...,1] + 1) * (1 - x[...,0]))[...,None]**2
+        v = ((1 - x[...,1]) * (x[...,1] + 1) * (1 - x[...,0]) * (x[...,0] + 1))[...,None]**2                     #[check]
         
         # Interface functios for the Air1 domain
         #------------------------------------------------------------------------------#
-        w51 = self.interface51(ws['u15'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
-        w56 = self.interface56(ws['u56'],x) * ((x[...,0] + 1) * (1 - x[...,0]) )[...,None]
+        # w51 = self.interface51(ws['u15'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
+        w51 = self.interface51(ws['u15'],x) *( (x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
+        w56 = self.interface56(ws['u56'],x) * (((x[...,0] + 1) * (1 - x[...,0]) )**2)[...,None]
         
+
+
+        w5neum = self.neural_networks['u5neum'].apply(ws['u5neum'], x[...,1][...,None])
+        w5neum = w5neum * (1/4 * (x[...,0] + 3) * (1 - x[...,0]) * ( x[...,1] + 1) * (1-x[...,1]) )[...,None]   #[check]
+        # w5neum = w5neum * (-1/2 * (x[...,0] - 1) * ( x[...,1] + 1) * ( 1 - x[...,1]) )[...,None]
 
 
         # w56 = self.interface56(ws['u56'],x) * ((1 + x[...,0]) )[...,None]
@@ -529,14 +535,16 @@ class Model(src.PINN):
 
         # Function coinciding on the three subdomains
         #------------------------------------------------------------------------------#
-        w156 = ws['u156']*( (1 + x[...,0]) * ( 1 + x[...,1]) )[...,None]**alpha
+        w156 = ws['u156']*( (1 + x[...,0]) * ( 1 + x[...,1]) )[...,None]**2
         w567 = ws['u567']*( (1 - x[...,0]) * ( x[...,1] + 1) )[...,None]**alpha
+
+        # w567 = ( w567 * (1/2) * (x[...,0] + 3) )[...,None]**alpha
         #------------------------------------------------------------------------------#
         # w156 = u_{156} * ((x+1)*(y+1))^alpha   |
         # w567 = u_{567} * ((1-x)*(y+1))^alpha   |
 
-        w = w51 + w56 + w567 + w156
-        return u * v + w
+        w = w5neum + w51 + w56 + w156 + w567
+        return u*v + w
         
 
 
@@ -550,7 +558,7 @@ class Model(src.PINN):
         # NN defined on the Air2 domain
         u = self.neural_networks['u6'].apply(ws['u6'],x)
 
-        # Ansatz Function: v(x,y) = (1-x)*(x+1)*(1-y)*(y+1)5.4588287068061385
+        # Ansatz Function: v(x,y) = (1-x)*(x+1)*(1-y)*(y+1)
         #------------------------------------------------------------------------------#
         v = ((1 - x[...,0]) * (x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
         # v = ((1 - x[...,0]) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
@@ -574,6 +582,7 @@ class Model(src.PINN):
         # Function coinciding on multiple subdomains
         #------------------------------------------------------------------------------#
         w567  = ws['u567']   *  ( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha
+        # w567 = ( w567 * (1/2) * (3 - x[...,0]) )[...,None]**alpha
         w1268 = ws['u1268']  *  ( (1 - x[...,0]) * (1 - x[...,1]) )[...,None]**alpha
         w678  = ws['u678']   *  ( (x[...,0] + 1) * (1 - x[...,1]) )[...,None]**alpha
         w156  = ws['u156']   *  ( (1 - x[...,0]) * (x[...,1] + 1) )[...,None]**alpha
@@ -742,10 +751,10 @@ class Model(src.PINN):
 
     def loss(self, ws, pts):
         lpde = self.loss_pde(ws, pts)
-        l_neum4 = self.loss_neum4(ws, points)
+        #l_neum4 = self.loss_neum4(ws, points)
         l_neum5 = self.loss_neum5(ws, points)
         l_neum7 = self.loss_neum7(ws, points)
-        return lpde + ( l_neum4 + l_neum5 + l_neum7)
+        return lpde + (l_neum5 + l_neum7)
     
 
     def loss_neum4(self, ws, points):
@@ -753,6 +762,7 @@ class Model(src.PINN):
         out = model.solution4(ws, points['ys_bnd4'])
         cc = cc[:,:,1] * out 
         cc = 1/(self.mu0*self.mur) * cc
+        #cc = cc[:,:,1] **2
         cc = cc * points['omega_bnd4']
         cc = cc * points['ws_bnd4']
         val = jnp.sum(cc)
@@ -770,7 +780,8 @@ class Model(src.PINN):
     def loss_neum7(self, ws, points):
         cc = src.operators.gradient(lambda x : model.solution7(ws,x))(points['ys_bnd7'])
         out = model.solution7(ws, points['ys_bnd7'])
-        cc = cc[:,:,1] * out 
+        cc = cc[:,:,1] * out
+        #cc = cc[:,:,1]**2
         cc = cc * points['omega_bnd7']
         cc= cc * points['ws_bnd7']
         val = jnp.sum(cc)
@@ -783,11 +794,12 @@ model = Model(rnd_key)                  # Instantiate PINN model
 w0 = model.init_unravel()               # Instantiate NN weights
 weights = model.weights                 # Retrieve weights to initialize the optimizer 
 model_idxs = [0,1,2,3,4,5,6,7]
+key = jax.random.PRNGKey(np.random.randint(745938247569238463))                     # Generate an PRND key to initialize the MC sampling routine
 #------------------------------Optimization parameters ------------------------------------#
 opt_type = 'ADAMax'                                                         # Optimizer name
-batch_size = 20000                                                          # Number of sample points for quadrature (MC integration) 
-stepsize = 0.0001                                                            # Stepsize for Optimizer aka. learning rate
-n_epochs = 500                                                              # Number of optimization epochs
+batch_size = 10000                                                          # Number of sample points for quadrature (MC integration) 
+stepsize = 0.005                                                            # Stepsize for Optimizer aka. learning rate
+n_epochs = 300                                                              # Number of optimization epochs
 path_coor = './fem_ref/coordinates.csv'                                     # Path to coordinates to evaluate the NN solution
 path_refs = './parameters/quad/mu_2k/ref_values.csv'                        # FEM reference solution
 
@@ -795,14 +807,12 @@ get_compiled = jax.jit(lambda key: model.get_points_MC(batch_size, key))    # JI
 opt_init, opt_update, get_params = optimizers.adamax(step_size=stepsize)    # Instantiate the optimizer
 opt_state = opt_init(weights)                                               # Initialize the optimizer with the NN weights
 params = get_params(opt_state)                                              # Retrieve the trainable weights for the optimizer as a dict
-
-
-
+#points = model.get_points_MC(batch_size, key)                               # Generate the MC samples
+#model.loss_neum5(params, points)
 evaluate_error(model, params, evaluate_models, model_idxs, path_coor, path_refs)        # Evaluate the model error before training
 loss_grad = jax.jit(lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(ws, pts))) # JIT compile the loss function before training
 # loss_grad = lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(ws, pts))
 
-key = jax.random.PRNGKey(np.random.randint(745938247569238463))                     # Generate an PRND key to initialize the MC sampling routine
 points = model.get_points_MC(batch_size, key)                               # Generate the MC samples
 
 #------------------------------Optimization Step-------------------------------------------#
