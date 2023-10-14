@@ -323,12 +323,10 @@ def plot_bndr(model, weights, geoms):
     ones_vec = np.ones_like(ys)
     input_1 = np.concatenate((ones_vec, ys), axis = 1)
     input_2 = np.concatenate((-1 * ones_vec, ys), axis = 1)
-    print(input_1, input_2.shape)
     sol5 = model.solution5(weights, input_1)
     sol6 = model.solution6(weights, input_2)
     sol_5l = model.solution5(weights, right_brd)
     sol_6l = model.solution6(weights, left_brd)
-    print(sol_5l, sol_6l)
     p1 = pole_tip.__call__(input_1)
     p2 = air2.__call__(input_2)
     print('The difference in points is ', np.abs(np.sum(p1 - p2)))
@@ -336,6 +334,7 @@ def plot_bndr(model, weights, geoms):
     plt.figure()
     plt.plot(ys, vals5[1], label = 'u51')
     plt.plot(ys, np.flip(vals1[0]), label = 'u15')
+    plt.savefig('bndry_u51.png')
     plt.legend()
 
 
@@ -349,11 +348,13 @@ def plot_bndr(model, weights, geoms):
     plt.plot(ys, vals6[1], label = 'u67')
     plt.plot(ys, np.flip(vals7[0]), label = 'u76')
     plt.legend()
+    plt.savefig('bndry_u67.png')
 #
     plt.figure()
     plt.plot(ys, vals6[2], label = 'u68')
     plt.plot(ys, np.flip(vals8[0]), label = 'u86')
     plt.legend()
+    plt.savefig('bndry_u68.png')
     #
     plt.figure()
     plt.plot(ys, vals1[2], label = 'u12')
@@ -393,6 +394,7 @@ def plot_bndr(model, weights, geoms):
     plt.plot(ys, vals5[0], label = 'u56')
     plt.plot(ys, np.flip(vals6[0]), label = 'u65')
     plt.legend()
+    plt.savefig('bndry_u56.png')
  #
 
  #
@@ -405,6 +407,7 @@ def plot_bndr(model, weights, geoms):
     plt.plot(ys, vals8[1], label = 'u87')
     plt.plot(ys, np.flip(vals7[3]), label = 'u78')
     plt.legend()
+    plt.savefig('bndry_u78.png')
 #
     plt.figure()
     plt.plot(ys, vals8[3], label = 'u82')
@@ -416,16 +419,15 @@ def plot_bndr(model, weights, geoms):
     plt.plot(ys, vals7[0], label = 'u76')
     plt.plot(ys, np.flip(vals6[1]), label = 'u67')
     plt.legend()
+    plt.savefig('bndry_u76.png')
     
     plt.figure()
     plt.plot(ys, vals7[2], label = 'u74')
     plt.plot(ys, np.flip(vals4[0]), label = 'u47')
     plt.legend()
+    plt.savefig('bndry_u74.png')
 
 
-    plt.show()
-
-    exit()
 
 
 def plot_solution(rnd_key, model, params):

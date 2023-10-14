@@ -117,6 +117,7 @@ class Model(src.PINN):
         # Interfaces to Air1                                
         self.add_flax_network('u56', feat_bndr, act_bndr, load, path)
         self.add_flax_network('u5neum', feat_bndr, act_bndr, load, path)
+        self.add_flax_network('u7neum', feat_bndr, act_bndr, load, path)
                                                              
         # Interfaces to Air2                                  
         self.add_flax_network('u67', feat_bndr, act_bndr, load, path)
@@ -136,6 +137,8 @@ class Model(src.PINN):
         self.add_trainable_parameter('u678',(1,), load_p, path) 
         self.add_trainable_parameter('u1268',(1,), load_p, path) 
         self.add_trainable_parameter('u3478',(1,), load_p, path) 
+        
+        self.add_trainable_parameter('u47neum',(1,), load_p, path) 
 
         #self.add_trainable_parameter('u28_p0.33',(1,), load_p, path)
         #self.add_trainable_parameter('u28_n0.33',(1,), load_p, path)
@@ -479,12 +482,14 @@ class Model(src.PINN):
 
         # Ansatz Function: v(x,y) = (x+1)*(1-y)*(y+1) -> (1-x) missing due to Neumann bc
         #------------------------------------------------------------------------------#
-        v = ( (x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1) )[...,None]
+        v = ( (x[...,0] + 1) * (1 - x[...,0]) * (1 - x[...,1]) * (x[...,1] + 1) )[...,None]**2
         
         # Interface functions for the IronYoke Right Lower domain
         #------------------------------------------------------------------------------#
         w43 = self.interface43(ws['u34'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
-        w47 = self.interface47(ws['u47'],x) * ( (x[...,0] + 1))[...,None]
+        
+
+        w47 = self.interface47(ws['u47'],x) * ((x[...,0] + 1) * (1 - x[...,0]))[...,None]**2
         #------------------------------------------------------------------------------#
         # w43 = NN_{34}(y) * -1/2(x-1) * (1-y) * (y+1)     |
         # w47 = NN_{47}(x) *  1/2(y+1) * (x+1)             |   
@@ -492,11 +497,15 @@ class Model(src.PINN):
 
         # Function coinciding on multiple subdomains
         #------------------------------------------------------------------------------#
-        w3478 = ws['u3478'] *  ( (1 - x[...,0]) * (x[...,1] + 1) )[...,None]**alpha
+        w3478 = ws['u3478'] *  ( (1 - x[...,0]) * (x[...,1] + 1) )[...,None]
+        w3478 = w3478 * (1/2) * (1 - x[...,0])[...,None]
+
+        w47neum = ws['u47neum'] * ( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]
+        w47neum = w47neum * (1/2) * (3 - x[...,0])[...,None]
         #------------------------------------------------------------------------------#
         # w3478 = u_{3478} * ((1-x)*(y+1))^alpha   |
 
-        w =  w43 + w47 + w3478
+        w = w43 + w47 + w47neum + w3478
         return u * v + w
 
 
@@ -505,7 +514,7 @@ class Model(src.PINN):
         #------------------------------------------------------------------------------#
         # 5. Domain : Air1
         #------------------------------------------------------------------------------#
-        alpha = 1
+        alpha = 2
 
         # NN defined on the Air1 domain
         u = self.neural_networks['u5'].apply(ws['u5'],x)
@@ -513,18 +522,20 @@ class Model(src.PINN):
         # Ansatz Function: v(x,y) = (1-x)*(1-y)*(1+y) -> (x+1) missing due to Neumann bc
         #------------------------------------------------------------------------------#
         # v = ((1 - x[...,1]) * (x[...,1] + 1) * (1 - x[...,0]))[...,None]**2
-        v = ((1 - x[...,1]) * (x[...,1] + 1) * (1 - x[...,0]) * (x[...,0] + 1))[...,None]**2                     #[check]
+        v = ((1 - x[...,1]) * (x[...,1] + 1) * (1 - x[...,0]) * (x[...,0] + 1))[...,None]**alpha                     #[check]
         
         # Interface functios for the Air1 domain
         #------------------------------------------------------------------------------#
-        # w51 = self.interface51(ws['u15'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
-        w51 = self.interface51(ws['u15'],x) *( (x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
-        w56 = self.interface56(ws['u56'],x) * (((x[...,0] + 1) * (1 - x[...,0]) )**2)[...,None]
+        # orig:
+        w51 = self.interface51(ws['u15'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
+        # addition:
+        w51 = w51 * (1/2) * (x[...,0] + 1)[...,None]
         
+        w56 = self.interface56(ws['u56'],x) * ((x[...,0] + 1) * (1 - x[...,0]))[...,None]**alpha
 
 
         w5neum = self.neural_networks['u5neum'].apply(ws['u5neum'], x[...,1][...,None])
-        w5neum = w5neum * (1/4 * (x[...,0] + 3) * (1 - x[...,0]) * ( x[...,1] + 1) * (1-x[...,1]) )[...,None]   #[check]
+        w5neum = w5neum * (1/4 * (x[...,0] + 3) * (1 - x[...,0]) * ( x[...,1] + 1) * (1 - x[...,1]) )[...,None]        #[check]
         # w5neum = w5neum * (-1/2 * (x[...,0] - 1) * ( x[...,1] + 1) * ( 1 - x[...,1]) )[...,None]
 
 
@@ -535,15 +546,17 @@ class Model(src.PINN):
 
         # Function coinciding on the three subdomains
         #------------------------------------------------------------------------------#
-        w156 = ws['u156']*( (1 + x[...,0]) * ( 1 + x[...,1]) )[...,None]**2
-        w567 = ws['u567']*( (1 - x[...,0]) * ( x[...,1] + 1) )[...,None]**alpha
+        w156 = ws['u156']*( (1 + x[...,0]) * ( 1 + x[...,1]) )[...,None]#**alpha
+        w156 = (1/2) * w156 * (1 + x[...,0])[...,None]#**alpha
+        
 
-        # w567 = ( w567 * (1/2) * (x[...,0] + 3) )[...,None]**alpha
+        w567 = ws['u567']*( (1 - x[...,0]) * ( x[...,1] + 1) )[...,None]
+        w567 = w567 * (1/2) * (3 + x[...,0])[...,None]
         #------------------------------------------------------------------------------#
         # w156 = u_{156} * ((x+1)*(y+1))^alpha   |
         # w567 = u_{567} * ((1-x)*(y+1))^alpha   |
 
-        w = w5neum + w51 + w56 + w156 + w567
+        w = w5neum + w51 + w56 + w156  + w567
         return u*v + w
         
 
@@ -566,12 +579,12 @@ class Model(src.PINN):
         # Interface functions for Air2 domain 
         #------------------------------------------------------------------------------#
         w61 = self.interface61(ws['u16'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
-        w65 = self.interface65(ws['u56'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
+        w65 = self.interface65(ws['u56'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]**2
         
         # w65 = self.interface65(ws['u56'],x) * (1 - (x[...,0] ))[...,None]
 
 
-        w67 = self.interface67(ws['u67'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
+        w67 = self.interface67(ws['u67'],x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]**2
         w68 = self.interface68(ws['u68'],x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
         #------------------------------------------------------------------------------#
         # w61 = NN_{16}(y) * -1/2(x-1) * (1-y) * (y+1)     |
@@ -581,18 +594,26 @@ class Model(src.PINN):
 
         # Function coinciding on multiple subdomains
         #------------------------------------------------------------------------------#
-        w567  = ws['u567']   *  ( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha
-        # w567 = ( w567 * (1/2) * (3 - x[...,0]) )[...,None]**alpha
-        w1268 = ws['u1268']  *  ( (1 - x[...,0]) * (1 - x[...,1]) )[...,None]**alpha
-        w678  = ws['u678']   *  ( (x[...,0] + 1) * (1 - x[...,1]) )[...,None]**alpha
+        w567  = ws['u567'] * ( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]#**alpha
+        w567 = w567 * (1/2) * (3 - x[...,1])[...,None]
+        w567 = w567 * (1/2) * (3 - x[...,0])[...,None]
+
+        w1268 = ws['u1268']  *  ( (1 - x[...,0]) * (1 - x[...,1]) )[...,None]#**alpha
+
+        w678  = ws['u678']   *  ( (x[...,0] + 1) * (1 - x[...,1]) )[...,None]#**alpha
+        w678 = w678 * (1/2) * (1 - x[...,1])[...,None]
+
         w156  = ws['u156']   *  ( (1 - x[...,0]) * (x[...,1] + 1) )[...,None]**alpha
+        w156  = w156 * (1/2) * (1 - x[...,0])[...,None]
+
+        # w156  = ws['u156']   *  ( (1/2) * (1 - x[...,0])**2 * (x[...,1] + 1) )[...,None]#**alpha
         #------------------------------------------------------------------------------#
         # w567  = u_{567}  * ((x+1)*(y+1))^alpha    |
         # w1268 = u_{1268} * ((1-x)*(1-y))^alpha    |
         # w678  = u_{678}  * ((x+1)*(y+1))^alpha    |
         # w156  = u_{156}  * ((1-x)*(y+1))^alpha    |
 
-        w = w61 + w65 + w67 + w68 + w678 + w567 + w1268 + w156
+        w = w61 + w65 + w67 + w68 + w567 + w156 + w678 + w1268
         return u * v + w
 
 
@@ -600,23 +621,34 @@ class Model(src.PINN):
         #------------------------------------------------------------------------------#
         # 7. Domain: Air3
         #------------------------------------------------------------------------------#
-        alpha = 1
+        alpha = 2
         
         # NN defined in the Air3 domain
         u = self.neural_networks['u7'].apply(ws['u7'],x)
 
         # Ansatz Function: v(x,y) = (x+1)*(1-y)*(y+1) -> (1-x) missing due to Neumann bc
         #------------------------------------------------------------------------------#
-        v = ((x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
-        
+        # v = ((x[...,0] + 1) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
+        v = ((x[...,0] + 1) * (1 - x[...,0]) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]**alpha
+
+        w7neum = self.neural_networks['u7neum'].apply(ws['u7neum'], x[...,1][...,None])
+        w7neum = w7neum * (1/4 * (3 - x[...,0] ) * (x[...,0] + 1) * ( x[...,1] + 1) * (1-x[...,1]) )[...,None]        #[check]
+
         # Interface functions for the Air3 domain 
         #------------------------------------------------------------------------------#
-        w74 = self.interface74(ws['u47'],x) * ((x[...,0] + 1))[...,None]
-        w76 = self.interface76(ws['u67'],x) * ((x[...,0] + 1) * (1 - x[...,0]))[...,None]
+        # w74 = self.interface74(ws['u47'],x) * ((x[...,0] + 1))[...,None]
+        w74 = self.interface74(ws['u47'],x) * ((x[...,0] + 1) * (1 - x[...,0]))[...,None]**2
+
+        w76 = self.interface76(ws['u67'],x) * ((x[...,0] + 1) * (1 - x[...,0]))[...,None]**2
         w78 = (self.interface78(ws['u78'],x)                            \
                 #+ ExpHat(x[...,1] + 0.33)[...,None] * ws['u87_n0.33']  \
                 #+ ExpHat(x[...,1] - 0.33)[...,None] * ws['u87_p0.33']  \
                 ) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
+        w78 = w78 * (1/2) * (1 - x[...,0])[...,None]
+
+        
+
+
         #------------------------------------------------------------------------------#
         # w74 = NN_{47}(x)  * -1/2(y-1) * (x+1)                      |
         # w76 = NN_{67}(x)  *  1/2(y+1) * (x+1)                      |
@@ -624,9 +656,20 @@ class Model(src.PINN):
 
         # Function coinciding on multiple subdomains
         #------------------------------------------------------------------------------#
-        w567  = ws['u567']  *  ( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha
-        w3478 = ws['u3478'] *  ( (1 - x[...,0]) * (1 - x[...,1]) )[...,None]**alpha
-        w678  = ws['u678']  *  ( (1 - x[...,0]) * (x[...,1] + 1) )[...,None]**alpha
+        w567  = ws['u567']  *  ( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]
+        w567 = w567 * (1/2) * (3 - x[...,0])[...,None]
+
+
+        w3478 = ws['u3478'] *  ( (1 - x[...,0]) * (1 - x[...,1]) )[...,None]
+        w3478 = w3478 * 1/2 * (1 - x[...,0])[...,None]
+
+        w678  = ws['u678']  *  ( (1 - x[...,0]) * (x[...,1] + 1) )[...,None]
+        w678 = w678 * (1/2) * (1 - x[...,0])[...,None]
+
+
+
+        w47neum = ws['u47neum'] * ( (x[...,0] + 1) * (1 - x[...,1]) )[...,None]
+        w47neum = w47neum * (1/2) * (3 - x[...,0])[...,None]
 
         
         #------------------------------------------------------------------------------#
@@ -634,7 +677,7 @@ class Model(src.PINN):
         # w3478 = u_{3478} * ((1-x)*(1-y))^alpha    |
         # w678  = u_{678}  * ((1-x)*(y+1))^alpha    |
 
-        w = w74 + w76 + w78 + w678 + w567+ w3478
+        w = w74 + w76 + w7neum + w47neum + w78 + w678 + w567 + w3478 
         return u * v + w
 
 
@@ -654,7 +697,7 @@ class Model(src.PINN):
         # v = ((1 - x[...,0]) * (1 - x[...,1]) )[...,None]
 
         # Interface functions for Copper (Coil) domain
-        #------------------------------------------------------------------------------#
+        #----------------------------------------------derivative of -(1/4)(y-1)*(x+1)--------------------------------#
         w82 = (self.interface82(ws['u28'],x)                            \
                 #+ ExpHat(x[...,1] + 0.33)[...,None]*ws['u28_n0.33']     \
                 #+ ExpHat(x[...,1] - 0.33)[...,None]*ws['u28_p0.33']     \
@@ -680,6 +723,8 @@ class Model(src.PINN):
         # Function coinciding on multiple subdomains
         #------------------------------------------------------------------------------#
         w678  = ws['u678']  * ( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha 
+
+
         w3478 = ws['u3478'] * ( (x[...,0] + 1) * (1 - x[...,1]) )[...,None]**alpha
         w238  = ws['u238']  * ( (1 - x[...,0]) * (1 - x[...,1]) )[...,None]**alpha 
         w1268 = ws['u1268'] * ( (1 - x[...,0]) * (x[...,1] + 1) )[...,None]**alpha
@@ -690,7 +735,7 @@ class Model(src.PINN):
         # w_238  = u_{238}  * ((1-x)*(1-y))^alpha   | 
         # w_1268 = u_{1268} * ((1-x)*(y+1))^alpha   |  
 
-        w = w82 + w83 + w86 + w87 + w678+ w1268+ w3478 + w238     
+        w = w82 + w83 + w86 + w87 + w678 + w1268+ w3478 + w238     
         return u * v + w
         
 
@@ -754,7 +799,7 @@ class Model(src.PINN):
         #l_neum4 = self.loss_neum4(ws, points)
         l_neum5 = self.loss_neum5(ws, points)
         l_neum7 = self.loss_neum7(ws, points)
-        return lpde + (l_neum5 + l_neum7)
+        return lpde + (l_neum7)
     
 
     def loss_neum4(self, ws, points):
@@ -771,6 +816,7 @@ class Model(src.PINN):
     def loss_neum5(self, ws, points):
         cc = src.operators.gradient(lambda x : model.solution5(ws,x))(points['ys_bnd5'])
         out = model.solution5(ws, points['ys_bnd5'])
+        print(cc)
         cc = cc[:,:,1] * out 
         cc = cc * points['omega_bnd5']
         cc = cc * points['ws_bnd5']
@@ -779,7 +825,9 @@ class Model(src.PINN):
 
     def loss_neum7(self, ws, points):
         cc = src.operators.gradient(lambda x : model.solution7(ws,x))(points['ys_bnd7'])
+        print(cc)
         out = model.solution7(ws, points['ys_bnd7'])
+        
         cc = cc[:,:,1] * out
         #cc = cc[:,:,1]**2
         cc = cc * points['omega_bnd7']
@@ -794,11 +842,11 @@ model = Model(rnd_key)                  # Instantiate PINN model
 w0 = model.init_unravel()               # Instantiate NN weights
 weights = model.weights                 # Retrieve weights to initialize the optimizer 
 model_idxs = [0,1,2,3,4,5,6,7]
-key = jax.random.PRNGKey(np.random.randint(745938247569238463))                     # Generate an PRND key to initialize the MC sampling routine
+key = jax.random.PRNGKey(np.random.randint(7459382479238463))                     # Generate an PRND key to initialize the MC sampling routine
 #------------------------------Optimization parameters ------------------------------------#
 opt_type = 'ADAMax'                                                         # Optimizer name
-batch_size = 10000                                                          # Number of sample points for quadrature (MC integration) 
-stepsize = 0.005                                                            # Stepsize for Optimizer aka. learning rate
+batch_size = 10                                                        # Number of sample points for quadrature (MC integration) 
+stepsize = 0.001                                                            # Stepsize for Optimizer aka. learning rate
 n_epochs = 300                                                              # Number of optimization epochs
 path_coor = './fem_ref/coordinates.csv'                                     # Path to coordinates to evaluate the NN solution
 path_refs = './parameters/quad/mu_2k/ref_values.csv'                        # FEM reference solution
@@ -807,8 +855,13 @@ get_compiled = jax.jit(lambda key: model.get_points_MC(batch_size, key))    # JI
 opt_init, opt_update, get_params = optimizers.adamax(step_size=stepsize)    # Instantiate the optimizer
 opt_state = opt_init(weights)                                               # Initialize the optimizer with the NN weights
 params = get_params(opt_state)                                              # Retrieve the trainable weights for the optimizer as a dict
-#points = model.get_points_MC(batch_size, key)                               # Generate the MC samples
-#model.loss_neum5(params, points)
+points = model.get_points_MC(batch_size, key)                               # Generate the MC samples
+
+geoms = [iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_1, air_2, air_3, current]
+plot_bndr(model, params, geoms)
+model.loss_neum7(params, points)
+model.loss_neum5(params, points)
+exit()
 evaluate_error(model, params, evaluate_models, model_idxs, path_coor, path_refs)        # Evaluate the model error before training
 loss_grad = jax.jit(lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(ws, pts))) # JIT compile the loss function before training
 # loss_grad = lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(ws, pts))
