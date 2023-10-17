@@ -130,7 +130,7 @@ def create_geometry(key, scale = 1):
         knots_as = np.array([a1, a2, a3])
         knots = np.array([[[0,0],[a2[0],0],[a3[0],0]]])
         knots = np.concatenate((knots, knots_as[np.newaxis,:]))
-        print(knots)
+        
         weights = np.ones(knots.shape[:2])
         weights[1,1] = np.sin((np.pi-alpha)/2)
 
@@ -175,6 +175,222 @@ def create_geometry(key, scale = 1):
     current = mke_current_domain(knots_yoke, knots_air3)
     
     return iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_1, air_2, air_3, current
+
+
+def mke_double_patch(key, scale = 1):
+    def get_poletip_knots(scale):
+        scale = scale
+        Dc = 5e-2                                                          
+        hc = 7.55176e-3                                                           
+        ri = 10e-3                                                           
+        rm = (Dc*Dc+hc*hc-ri*ri)/(Dc*np.sqrt(2)+hc*np.sqrt(2)-2*ri)
+        R = rm-ri
+        O = np.array([rm/np.sqrt(2),rm/np.sqrt(2)])
+        alpha1 = -np.pi*3/4       
+        alpha2 = np.math.asin((hc-rm/np.sqrt(2))/R)
+        alpha = np.abs(alpha2-alpha1)
+    
+        A = np.array([[O[0] - ri/np.sqrt(2), O[1] - ri/np.sqrt(2)], [O[0] - Dc, O[1] - hc]])
+        b = np.array([[A[0,0]*ri/np.sqrt(2)+A[0,1]*ri/np.sqrt(2)],[A[1,0]*Dc+A[1,1]*hc]])
+        C = np.linalg.solve(A,b)
+        return C, alpha
+    
+    p1 = 0.12
+    p2 = 0.1
+    p3 = 0.05
+    p4 = 0.01
+    C, alpha = get_poletip_knots(scale)
+    knots_outer = np.array([[p1, p2, p3, p4]]).T
+
+    h = 0.03                    # Thickness of the pole tip
+
+    d4x = p3 + h/np.sqrt(2)     # Calculate the first point parallel to the outer boundary. sqrt(2) for hypothenuse
+    d4y = p3 - h/np.sqrt(2)
+
+    delx = 0.005                # Increments in x and y direction
+    dely = delx/2
+    offset = 0.02               # Offset to shift the iron pole away from the origin 
+
+    rotation_mat = cal_rotation_matrix(-np.pi/8)        # Rotation matrix for 22.5 degrees 
+    rotation_mat2 = cal_rotation_matrix(-np.pi/32)      
+
+    def mke_complete_ironyoke(knots_outer, offset, d4x, d4y, rotation_mat):
+        knots_outer = np.concatenate((knots_outer, knots_outer), axis = 1)           # Create knots on outer iron yoke boundary defined by f(x)=x
+        knot_bnd = np.matmul(rotation_mat, knots_outer[0,:])                         # Generate the final knot by rotating the last knot by 22.5 degrees
+        knots_outer = np.concatenate((knot_bnd[np.newaxis,:], knots_outer))          # Add said knot to the knot vector
+        
+
+        knots_inner = np.array([[0.1162132, 0.0462868],[0.1112132, 0.0537868],[0.0962132, 0.0537868] ,[d4x, d4y], [0.05, 0.00755176]]) # Fix the inner nodes, leave the first node variable
+        knots_middle = (knots_outer+knots_inner)/2                                         # Generate the knots between inner and outer nodes 
+        knots_middle[-1,:] = C.flatten()                                             # Add nodes on the pole tips
+        knots = np.concatenate((knots_outer[None,...],knots_middle[None,...],knots_inner[None,...]),0)
+        knots = knots + offset
+        
+        weights = np.ones(knots.shape[:2])
+        weights[1,-1] = np.sin((np.pi-alpha)/2)
+        return knots, weights
+
+    def mke_air_domains(knots_pole, knots_iyr_mid, knots_iyr_low):
+        a1 = knots_pole[0,1,:]
+        a2 = knots_pole[1,-1,:]
+        a3 = knots_pole[-1,-1,:]
+
+        k1 = np.array([0.10, 0.035])
+        k2 = knots_iyr_mid[1,-1,:]
+        k3 = np.array([a3[0],0]) 
+        k4 = knots_iyr_low[1,-1,:]
+        f = lambda t : k1 + t*(k2-k1)
+        f2 = lambda t : k3 + t*(k4-k3)
+
+        knots_as = np.array([a1, a2, a3])
+        knots = np.array([[[0,0],[a2[0],0],[a3[0],0]]])
+        knots = np.concatenate((knots, knots_as[np.newaxis,:]))
+        print(knots)
+        weights = np.ones(knots.shape[:2])
+        weights[1,1] = np.sin((np.pi-alpha)/2)
+
+        basisx = src.bspline.BSplineBasisJAX(np.linspace(-1,1,2),1)
+        basisy = src.bspline.BSplineBasisJAX(np.array([-1,1]),2)
+        air_1 = src.geometry.PatchNURBSParam([basisx, basisy], knots, weights, 0, 2, key)
+
+        knots_bottom = np.array([k1, [a3[0],0]]) 
+        knots_top = np.array([[d4x+offset,d4y+offset], a3])
+        knots = np.concatenate((knots_top[None,...],knots_bottom[None,...]),0)
+        weights = np.ones(knots.shape[:2])
+
+        basisx = src.bspline.BSplineBasisJAX(np.linspace(-1,1,2),1)
+        basisy = src.bspline.BSplineBasisJAX(np.linspace(-1,1,2),1)
+        air_2 = src.geometry.PatchNURBSParam([basisx, basisy], knots, weights, 0, 2, key)
+
+        knots_air3_upper = np.array([f(1), f(0.75), f(0.25), f(0)])
+        knots_air3_lower = np.array([f2(1), f2(0.75), f2(0.25), f2(0)])
+        knots_air3 = np.concatenate((knots_air3_upper[None,...], knots_air3_lower[None,...]),0)
+        weights = np.ones(knots_air3.shape[:2])
+
+        basisx = src.bspline.BSplineBasisJAX(np.linspace(-1,1,2),1)
+        basisy = src.bspline.BSplineBasisJAX(np.array([-1,-0.33,0.33,1]),1)
+        air_3 = src.geometry.PatchNURBSParam([basisx, basisy], knots_air3, weights, 0, 2, key)
+        return air_1, air_2, air_3, knots_air3 
+
+    knots, weights = mke_complete_ironyoke(knots_outer, offset, d4x, d4y, rotation_mat) 
+    weights_pole = weights[:,-2:None]
+    knots_pole = knots[:,-2:None,:] 
+
+
+    a1 = knots_pole[0,1,:]
+    a2 = knots_pole[1,-1,:]
+    a3 = knots_pole[-1,-1,:]
+
+    k1 = np.array([0.10, 0.035])
+    k3 = np.array([a3[0],0]) 
+
+    knots_as = np.array([a1, a2, a3])
+    knots = np.array([[[0,0],[a2[0],0],[a3[0],0]]])
+    knots = np.concatenate((knots, knots_as[np.newaxis,:]))
+    knots1 = knots
+    knots_air1 = np.reshape(knots, (6,2)) 
+    weights = np.ones(knots.shape[:2])
+    weights[1,1] = np.sin((np.pi-alpha)/2)
+    weights1 = weights
+
+    basisx = src.bspline.BSplineBasisJAX(np.linspace(-1,1,2),1)
+    basisy = src.bspline.BSplineBasisJAX(np.array([-1,1]),2)
+    air_1 = src.geometry.PatchNURBSParam([basisx, basisy], knots, weights, 0, 2, key)
+
+    knots_bottom = np.array([k1, [a3[0],0]]) 
+    knots_top = np.array([[d4x+offset,d4y+offset], a3])
+    knots = np.concatenate((knots_top[None,...],knots_bottom[None,...]),0)
+    knots2 = knots
+    knots_air2 = np.reshape(knots, (4,2)) 
+    weights = np.ones(knots.shape[:2])
+    weights2 = weights
+
+    basisx = src.bspline.BSplineBasisJAX(np.linspace(-1,1,2),1)
+    basisy = src.bspline.BSplineBasisJAX(np.linspace(-1,1,2),1)
+    air_2 = src.geometry.PatchNURBSParam([basisx, basisy], knots, weights, 0, 2, key)
+
+    ys = np.linspace(-1,1,100)
+    xx,yy = np.meshgrid(ys, ys)
+    input_vec = np.concatenate((xx.flatten()[:,np.newaxis], yy.flatten()[:,np.newaxis]), axis = 1)
+
+    _, diffs1 = air_1.importance_sampling(10000)
+    _, diffs2 = air_2.importance_sampling(10000)
+    print(np.sum(diffs1) + np.sum(diffs2))
+
+
+    air_2_pts = air_2.__call__(input_vec)
+    air_1_pts = air_1.__call__(input_vec)
+    
+    pts = [air_2_pts, air_1_pts]
+    knots_list = [knots_air2, knots_air1]
+    #[plt.scatter(i[:,0], i[:,1], s = 0.1) for i in pts]
+    # [plt.scatter(i[:,0], i[:,1], c = "r") for i in knots_list]
+    insert_knots = np.concatenate((knots2[[1],[0],:], knots2[[0],[0],:]))
+    insert_knots = insert_knots[:,np.newaxis,:]
+    knots = np.concatenate((knots1, insert_knots), axis = 1)
+    knots_bot = knots[[0],:,:]
+
+    #knots_bot = np.concatenate((knots_bot[:,0:-1,:], 0.5*(knots_bot[:,[2],:] + knots_bot[:,[3],:]), knots_bot[:,[3],:]), axis = 1)
+    knots_bot = np.concatenate((knots_bot[:,0:-1,:], knots_bot[:,[2],:], knots_bot[:,[3],:]), axis = 1)
+
+    knots_top = knots[[1],:,:]
+    knots_top[:,1,1] = 0.01
+    knots_top[:,1,0] = 0.045
+    knots_bot[:,1,0] = 0.045
+    print(knots_top[:,1,:])
+    
+
+    #knots_top = np.concatenate((knots_top[:,0:-1,:], 0.5*(knots_top[:,[2],:] + knots_top[:,[3],:]), knots_top[:,[3],:]), axis = 1)
+    knots_top = np.concatenate((knots_top[:,0:-1,:], knots_top[:,[2],:], knots_top[:,[3],:]), axis = 1)
+    knots_mid = 0.5*(knots_bot + knots_top) 
+    knots = np.concatenate((knots_bot, knots_mid, knots_top), axis = 0)
+    weights = np.ones(knots.shape[:2])
+    weights[2,1] = np.sin((np.pi-alpha)/2)
+    weights[2,1] = 0.5
+    # print(weights[2,1])
+
+    #knots = knots[:, 0:3,:]
+    #weights = weights[:, 0:3]
+
+
+
+
+    knots_plot = np.reshape(knots, (knots.shape[0]*knots.shape[1], 2))
+    #plt.scatter(knots_plot[:,0], knots_plot[:,1])
+    #plt.savefig('./scatter_pic.png')
+    basis1 = src.bspline.BSplineBasisJAX(np.array([-1,1]),2)
+    basis1b = src.bspline.BSplineBasisJAX(np.array([-1,0,1]),1)
+    
+    basis1a = src.bspline.BSplineBasisJAX(np.array([-1,0,1]),2)
+
+    #basis1a = src.bspline.BSplineBasisJAX(np.array([-1,1]),3)
+    basis2 = src.bspline.BSplineBasisJAX(np.array([-1,-0.33,0.33,1]),2)
+    #basis2 = src.bspline.BSplineBasisJAX(np.array([-1,-1,1]),2)
+    #basis2 = src.bspline.BSplineBasisJAX(np.array([-1,-0.5,0,0.5,1]),1)
+    basis3 = src.bspline.BSplineBasisJAX(np.linspace(-1,1,2),1)
+    air_c = src.geometry.PatchNURBSParam([basis1, basis2], knots, weights, 0, 2, key)
+    air_c_pts = air_c.__call__(input_vec)
+    air_c_pts, diffs = air_c.importance_sampling(10000)
+    plt.scatter(air_c_pts[:,0], air_c_pts[:,1], s = 0.1)
+    plt.scatter(knots_plot[:,0], knots_plot[:,1])
+    plt.savefig('./combined_scatter.png')
+    return air_c
+
+
+
+
+air_c = mke_double_patch(rnd_key)
+iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, _, _, air_3, current  = create_geometry(rnd_key)
+geoms = [iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_c, air_3, current]
+ys = np.linspace(-1,1,100)
+xx,yy = np.meshgrid(ys, ys)
+input_vec = np.concatenate((xx.flatten()[:,np.newaxis], yy.flatten()[:,np.newaxis]), axis = 1)
+plt.figure()
+[plt.scatter(i.__call__(input_vec)[:,0], i.__call__(input_vec)[:,1], s=0.1) for i in geoms]
+plt.savefig('./patched_up.png')
+exit()
+
+
 
 def plot_geo_bnd(geom):
     #iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_1, air_2, air_3, current  = create_geometry(rnd_key)
