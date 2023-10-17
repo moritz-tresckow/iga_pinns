@@ -89,7 +89,7 @@ def evaluate_error(model, params, evaluation_func, model_idxs, path_coor, path_v
     vmax = np.amax(ref_values)
     print(vmin, vmax)
     vmin = 0
-    vmax = 0.6 
+    vmax = 0.3 
     error = [] 
     plt.figure()
     norm = mpl.colors.Normalize(vmin = vmin, vmax = vmax)

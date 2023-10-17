@@ -191,7 +191,7 @@ def plot_on_coordinates(ref_values):
     m = mpl.cm.ScalarMappable(norm=norm, cmap = 'viridis')
     m.set_array([])
 
-    for i in [4,5,6,7]:
+    for i in [5,6,7]:
         step = 100**2
         local_coors = coordinates[i*step:(i+1)*step, :]
         local_vals = ref_values[i*step:(i+1)*step]

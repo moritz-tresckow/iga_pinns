@@ -342,6 +342,7 @@ def plot_bndr(model, weights, geoms):
     plt.plot(ys, vals1[1], label = 'u16')
     plt.plot(ys,np.flip(vals6[3]), label = 'u61')
     plt.legend()
+    plt.savefig('bndry_u61.png')
 
 
     plt.figure()
@@ -360,35 +361,34 @@ def plot_bndr(model, weights, geoms):
     plt.plot(ys, vals1[2], label = 'u12')
     plt.plot(ys, np.flip(vals2[0]), label = 'u21')
     plt.legend()
+    plt.savefig('bndry_u21.png')
 #
-    plt.plot(ys, np.zeros_like(ys))
-    plt.figure()
-    plt.plot(ys, vals2[0], label = 'u21')
-    plt.plot(ys, np.flip(vals1[2]), label = 'u12')
-    plt.legend()
 #
     plt.figure()
     plt.plot(ys, vals2[1], label = 'u28')
     plt.plot(ys, np.flip(vals8[3]), label = 'u82')
     plt.legend()
+    plt.savefig('bndry_u28.png')
 #
 
-    #plt.plot(ys, np.zeros_like(ys))
 #
     plt.figure()
     plt.plot(ys, vals3[0], label = 'u38')
     plt.plot(ys, np.flip(vals8[2]), label = 'u83')
     plt.legend()
+    plt.savefig('bndry_u38.png')
 #
     plt.figure()
     plt.plot(ys, vals3[1], label = 'u34')
     plt.plot(ys, np.flip(vals4[3]), label = 'u43')
     plt.legend()
+    plt.savefig('bndry_u34.png')
 #
     plt.figure()
     plt.plot(ys, vals3[3], label = 'u32')
     plt.plot(ys, np.flip(vals2[2]), label = 'u23')
     plt.legend()
+    plt.savefig('bndry_u32.png')
     
     plt.figure()
     plt.plot(ys, vals5[0], label = 'u56')
@@ -396,12 +396,11 @@ def plot_bndr(model, weights, geoms):
     plt.legend()
     plt.savefig('bndry_u56.png')
  #
-
- #
     plt.figure()
     plt.plot(ys, vals8[0], label = 'u86')
     plt.plot(ys, np.flip(vals6[2]), label = 'u68')
     plt.legend()
+    plt.savefig('bndry_u86.png')
     
     plt.figure()
     plt.plot(ys, vals8[1], label = 'u87')
@@ -413,6 +412,7 @@ def plot_bndr(model, weights, geoms):
     plt.plot(ys, vals8[3], label = 'u82')
     plt.plot(ys, np.flip(vals2[1]), label = 'u28')
     plt.legend()
+    plt.savefig('bndry_u82.png')
 #
 #
     plt.figure()
