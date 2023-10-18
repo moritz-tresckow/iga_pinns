@@ -230,48 +230,6 @@ def mke_double_patch(key, scale = 1):
         weights[1,-1] = np.sin((np.pi-alpha)/2)
         return knots, weights
 
-    def mke_air_domains(knots_pole, knots_iyr_mid, knots_iyr_low):
-        a1 = knots_pole[0,1,:]
-        a2 = knots_pole[1,-1,:]
-        a3 = knots_pole[-1,-1,:]
-
-        k1 = np.array([0.10, 0.035])
-        k2 = knots_iyr_mid[1,-1,:]
-        k3 = np.array([a3[0],0]) 
-        k4 = knots_iyr_low[1,-1,:]
-        f = lambda t : k1 + t*(k2-k1)
-        f2 = lambda t : k3 + t*(k4-k3)
-
-        knots_as = np.array([a1, a2, a3])
-        knots = np.array([[[0,0],[a2[0],0],[a3[0],0]]])
-        knots = np.concatenate((knots, knots_as[np.newaxis,:]))
-        print(knots)
-        weights = np.ones(knots.shape[:2])
-        weights[1,1] = np.sin((np.pi-alpha)/2)
-
-        basisx = src.bspline.BSplineBasisJAX(np.linspace(-1,1,2),1)
-        basisy = src.bspline.BSplineBasisJAX(np.array([-1,1]),2)
-        air_1 = src.geometry.PatchNURBSParam([basisx, basisy], knots, weights, 0, 2, key)
-
-        knots_bottom = np.array([k1, [a3[0],0]]) 
-        knots_top = np.array([[d4x+offset,d4y+offset], a3])
-        knots = np.concatenate((knots_top[None,...],knots_bottom[None,...]),0)
-        weights = np.ones(knots.shape[:2])
-
-        basisx = src.bspline.BSplineBasisJAX(np.linspace(-1,1,2),1)
-        basisy = src.bspline.BSplineBasisJAX(np.linspace(-1,1,2),1)
-        air_2 = src.geometry.PatchNURBSParam([basisx, basisy], knots, weights, 0, 2, key)
-
-        knots_air3_upper = np.array([f(1), f(0.75), f(0.25), f(0)])
-        knots_air3_lower = np.array([f2(1), f2(0.75), f2(0.25), f2(0)])
-        knots_air3 = np.concatenate((knots_air3_upper[None,...], knots_air3_lower[None,...]),0)
-        weights = np.ones(knots_air3.shape[:2])
-
-        basisx = src.bspline.BSplineBasisJAX(np.linspace(-1,1,2),1)
-        basisy = src.bspline.BSplineBasisJAX(np.array([-1,-0.33,0.33,1]),1)
-        air_3 = src.geometry.PatchNURBSParam([basisx, basisy], knots_air3, weights, 0, 2, key)
-        return air_1, air_2, air_3, knots_air3 
-
     knots, weights = mke_complete_ironyoke(knots_outer, offset, d4x, d4y, rotation_mat) 
     weights_pole = weights[:,-2:None]
     knots_pole = knots[:,-2:None,:] 
@@ -309,6 +267,8 @@ def mke_double_patch(key, scale = 1):
     basisy = src.bspline.BSplineBasisJAX(np.linspace(-1,1,2),1)
     air_2 = src.geometry.PatchNURBSParam([basisx, basisy], knots, weights, 0, 2, key)
 
+
+
     ys = np.linspace(-1,1,100)
     xx,yy = np.meshgrid(ys, ys)
     input_vec = np.concatenate((xx.flatten()[:,np.newaxis], yy.flatten()[:,np.newaxis]), axis = 1)
@@ -323,7 +283,7 @@ def mke_double_patch(key, scale = 1):
     
     pts = [air_2_pts, air_1_pts]
     knots_list = [knots_air2, knots_air1]
-    #[plt.scatter(i[:,0], i[:,1], s = 0.1) for i in pts]
+    # [plt.scatter(i[:,0], i[:,1], s = 0.1) for i in pts]
     # [plt.scatter(i[:,0], i[:,1], c = "r") for i in knots_list]
     insert_knots = np.concatenate((knots2[[1],[0],:], knots2[[0],[0],:]))
     insert_knots = insert_knots[:,np.newaxis,:]
@@ -337,7 +297,8 @@ def mke_double_patch(key, scale = 1):
     knots_top[:,1,1] = 0.01
     knots_top[:,1,0] = 0.045
     knots_bot[:,1,0] = 0.045
-    print(knots_top[:,1,:])
+    knots_bot[:,-1,1] = 0
+    knots_bot[:,-1,0] = knots_top[:,-1,0]
     
 
     #knots_top = np.concatenate((knots_top[:,0:-1,:], 0.5*(knots_top[:,[2],:] + knots_top[:,[3],:]), knots_top[:,[3],:]), axis = 1)
@@ -371,24 +332,71 @@ def mke_double_patch(key, scale = 1):
     air_c = src.geometry.PatchNURBSParam([basis1, basis2], knots, weights, 0, 2, key)
     air_c_pts = air_c.__call__(input_vec)
     air_c_pts, diffs = air_c.importance_sampling(10000)
+    print(np.sum(diffs))
+    
+
+    knots_bair3 = np.array([[0.0912132, 0], [0.1, 0], [0.15, 0]])
+    knots_bair3 = knots_bair3[np.newaxis, :,:]
+    knots_tair3 = np.array([[0.0912132, 0.0487868], [0.1, 0.035], [0.14, 0.05]])
+    knots_tair3 = knots_tair3[np.newaxis, :,:]
+    
+    knots_mid = 0.5*(knots_bair3 + knots_tair3) 
+    knots = np.concatenate((knots_bair3, knots_mid, knots_tair3), axis = 0)
+    weights = np.ones(knots.shape[:2])
+    basis1b = src.bspline.BSplineBasisJAX(np.array([-1,0,1]),1)
+    basis1c = src.bspline.BSplineBasisJAX(np.array([-1,0,1]),1)
+
+    air_rest = src.geometry.PatchNURBSParam([basis1b, basis1c], knots, weights, 0, 2, key)
+    air_rest_pts, diffs = air_rest.importance_sampling(10000)
+    print(np.sum(diffs))
     plt.scatter(air_c_pts[:,0], air_c_pts[:,1], s = 0.1)
-    plt.scatter(knots_plot[:,0], knots_plot[:,1])
+    plt.scatter(air_rest_pts[:,0], air_rest_pts[:,1], s = 0.1)
     plt.savefig('./combined_scatter.png')
-    return air_c
+
+    return air_c, air_rest
+
+
+def sample_bnd(N):
+    ys = np.linspace(-1,1,100)
+    ys = ys[:,np.newaxis]
+    one_vec = np.ones_like(ys)
+
+    ys_top = np.concatenate((ys, one_vec), axis = 1)
+    ys_bottom = np.concatenate((ys, -1 * one_vec), axis = 1)
+
+    ys_left = np.concatenate((-1* one_vec, ys), axis = 1) 
+    ys_right = np.concatenate((one_vec, ys), axis = 1) 
+    bnd_pts = np.array([ys_top, ys_right, ys_bottom, ys_left])
+    bnd_pts = np.reshape(bnd_pts, (bnd_pts.shape[0]*bnd_pts.shape[1], 2))
+    return [ys_right, ys_bottom, ys_left, ys_top] 
 
 
 
-
-air_c = mke_double_patch(rnd_key)
+bnd_samples = sample_bnd(1000)
+air_c, air_rest = mke_double_patch(rnd_key)
 iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, _, _, air_3, current  = create_geometry(rnd_key)
-geoms = [iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_c, air_3, current]
+geoms = [iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_c, air_rest, current]
 ys = np.linspace(-1,1,100)
 xx,yy = np.meshgrid(ys, ys)
 input_vec = np.concatenate((xx.flatten()[:,np.newaxis], yy.flatten()[:,np.newaxis]), axis = 1)
 plt.figure()
 [plt.scatter(i.__call__(input_vec)[:,0], i.__call__(input_vec)[:,1], s=0.1) for i in geoms]
+#[plt.scatter(air_rest.__call__(i)[:,0], air_rest.__call__(i)[:,1]) for i in bnd_samples]
 plt.savefig('./patched_up.png')
 exit()
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
