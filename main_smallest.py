@@ -17,7 +17,7 @@ from jax.config import config
 config.update("jax_enable_x64", True)
 rnd_key = jax.random.PRNGKey(1234)
 from mke_geo import create_geometry, plot_solution, plot_single_domain, plot_bndr
-from post_processing import evaluate_models, evaluate_error, evaluate_air
+# from post_processing import evaluate_models, evaluate_error, evaluate_air
 
 
 
@@ -199,7 +199,9 @@ class Model(src.PINN):
         
         # Interface functions for the Air3 domain 
         #------------------------------------------------------------------------------#
-        w78 = (self.interface78(ws['u78'],x)) * ((1 - x[...,1]))[...,None]
+        #w78 = (self.interface78(ws['u78'],x)) * ((1 - x[...,1]))[...,None]
+
+        w78 = self.neural_networks['u78'].apply(ws['u78'], (x[...,1])[...,None]) * (1/2) * (x[...,0] + 1)[...,None]
         #------------------------------------------------------------------------------#
         # w78 = (NN_{78}(y) * (1/2(x+1)) * (1-y)      |
 
@@ -210,7 +212,7 @@ class Model(src.PINN):
         #------------------------------------------------------------------------------#
         # w578  = u_{578}  * ((x+1)*(1-y))^alpha    |
 
-        w = w78 + w578
+        w = w78 # + w578
         return u * v + w
 
 
@@ -233,12 +235,13 @@ class Model(src.PINN):
         # Ansatz Function: v(x,y) = (1-x)*(1-y)
         #------------------------------------------------------------------------------#
         v = ((1 - x[...,0]) * (1 - x[...,1]) )[...,None]
-
-
-
-        w87 = (self.interface87(ws['u78'],x)) * ((1 - x[...,1]))[...,None]
-        w87a = ws['u87'].apply(ws, (0.5 * (x[...,0] - 1)[...,None])).flatten()*(1/2)*(x[...,1] + 1)[...,None]
-        w87b = ws['u87'].apply(ws, (-0.5 * (x[...,0] - 1)[...,None])).flatten()*(1/2)*(x[...,0] + 1)[...,None]
+        print(0.5 * (x[...,0] - 1)[...,None])
+        print(-0.5 * (x[...,1] - 1)[...,None])
+        eps = 1e-3 
+        factor2 = jnp.heaviside(0.5 * (x[...,0] - 1)[...,None],0.5)
+        factor1 = jnp.heaviside(0.5 * (x[...,1] - 1)[...,None],0.5)
+        w87a = factor1 * self.neural_networks['u78'].apply(ws['u78'], ( 0.5 * (x[...,0] - 1)[...,None])) * (1/2) * (x[...,1] + 1)[...,None] 
+        w87b = factor2 * self.neural_networks['u78'].apply(ws['u78'], (-0.5 * (x[...,1] - 1)[...,None])) * (1/2) * (x[...,0] + 1)[...,None]
         
 
 
@@ -248,8 +251,8 @@ class Model(src.PINN):
         
         # Function coinciding on multiple subdomains
         #------------------------------------------------------------------------------#
-                              # w578  = ws['u578'] * ( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha 
-        w =  w87a + w87b #+ w238# w82 + w83     + w3478+ w1268
+        # w578  = ws['u578'] * ( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha 
+        w =  w87a + w87b
         return u * v + w
         
 
@@ -313,11 +316,22 @@ params = get_params(opt_state)                                              # Re
 ys = np.linspace(-1,1,100)
 ys = ys[:,np.newaxis]
 one_vec = np.ones_like(ys)
-ys_right = np.concatenate((one_vec, ys), axis = 1)
+ys_right = np.concatenate((one_vec, -1*ys), axis = 1)
 ys_top = np.concatenate((ys, one_vec), axis = 1)
 print('start calc')
+sol2 = model.solution8(params, ys_right)
 sol = model.solution8(params, ys_top)
-print(sol)
+sol = np.concatenate((sol, sol2))
+
+ys = np.linspace(-1,1,200)
+ys = ys[:,np.newaxis]
+one_vec = np.ones_like(ys)
+ys_right = np.concatenate((one_vec, ys), axis = 1)
+sol_ref = model.solution7(params, ys_right)
+plt.plot(sol)
+plt.plot(sol_ref)
+plt.show()
+print(sol.shape)
 exit()
 
 
