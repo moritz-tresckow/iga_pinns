@@ -22,6 +22,20 @@ def plot_knots(knots, c):
     plt.scatter(plot_knots[:,0], plot_knots[:,1], c= c)
 
 
+def sample_bnd(N):
+    ys = np.linspace(-1,1,100)
+    ys = ys[:,np.newaxis]
+    one_vec = np.ones_like(ys)
+
+    ys_top = np.concatenate((ys, one_vec), axis = 1)
+    ys_bottom = np.concatenate((ys, -1 * one_vec), axis = 1)
+
+    ys_left = np.concatenate((-1* one_vec, ys), axis = 1) 
+    ys_right = np.concatenate((one_vec, ys), axis = 1) 
+    bnd_pts = np.array([ys_top, ys_right, ys_bottom, ys_left])
+    bnd_pts = np.reshape(bnd_pts, (bnd_pts.shape[0]*bnd_pts.shape[1], 2))
+    return [ys_right, ys_bottom, ys_left, ys_top] 
+
 #knots2 = np.array([[d4x + 5*delx, d4y-dely],[d4x + 4*delx, d4y + 2*dely],[d4x + delx, d4y + 2*dely] ,[d4x, d4y], [0.05, 0.00755176]])
 def create_geometry(key, scale = 1):
     def get_poletip_knots(scale):
@@ -86,11 +100,13 @@ def create_geometry(key, scale = 1):
         weights_pole = weights[:,-2:None]
         weights_yoke = weights[:,0:-1]
         knots_pole = knots[:,-2:None,:] 
+
         knots_yoke = knots[:,0:-1,:]
         basisx = src.bspline.BSplineBasisJAX(np.array([-1,1]),2)
         basisy = src.bspline.BSplineBasisJAX(np.array([-1,-0.33,0.33,1]),1)
         iron_yoke = src.geometry.PatchNURBSParam([basisx, basisy], knots_yoke, weights_yoke, 0, 2, key)
-
+        
+        print(knots_pole, weights_pole)
         basisx = src.bspline.BSplineBasisJAX(np.array([-1,1]),2)
         basisy = src.bspline.BSplineBasisJAX(np.linspace(-1,1,2),1)
         iron_pole = src.geometry.PatchNURBSParam([basisx, basisy], knots_pole, weights_pole, 0, 2, key) 
@@ -128,7 +144,9 @@ def create_geometry(key, scale = 1):
         f2 = lambda t : k3 + t*(k4-k3)
 
         knots_as = np.array([a1, a2, a3])
+        
         knots = np.array([[[0,0],[a2[0],0],[a3[0],0]]])
+        
         knots = np.concatenate((knots, knots_as[np.newaxis,:]))
         
         weights = np.ones(knots.shape[:2])
@@ -176,16 +194,150 @@ def create_geometry(key, scale = 1):
     
     return iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_1, air_2, air_3, current
 
+
+
+
+
+def mke_quadrupole_geo(key):
+    a0 = [0,0]
+    a1 = [0.04878132, 0]
+    a2 = [0.07, 0]
+
+    b0 = [0.03, 0.03]
+    b1 = [0.04878132, 0.00536081]
+    b2 = [0.07, 0.02755176]
+
+    c0 = [0.0806066, 0.0593934]
+    c1 = [0.04878132, 0.00536081]
+    c3 = [0.07, 0.07]
+
+    d0 = [0.0912132, 0.0487868]
+
+    e0 = [0.0912132, 0]
+
+    def mke_air1():
+        knots_lower =  np.array([a0, a1, a2])
+        knots_lower = knots_lower[np.newaxis, :, :]
+        knots_upper =  np.array([b0, b1, b2])
+        knots_upper = knots_upper[np.newaxis, :, :]
+
+        knots = np.concatenate((knots_lower, knots_upper))
+        weights = np.ones(knots.shape[:2])
+        weights[1,1] = 0.7
+
+        basisx = src.bspline.BSplineBasisJAX(np.linspace(-1,1,2),1)
+        basisy = src.bspline.BSplineBasisJAX(np.array([-1,1]),2)
+        air1 = src.geometry.PatchNURBSParam([basisx, basisy], knots, weights, 0, 2, key)
+        return air1
+
+    def mke_air2():
+        #knots_lower =  np.array([a2, e0])
+        # knots_lower =  np.array([e0, a2])
+        knots_lower =  np.array([a2, b2])
+        knots_lower = knots_lower[np.newaxis, :, :]
+        #knots_upper =  np.array([b2, d0])
+        # knots_upper =  np.array([d0, b2])
+        knots_upper =  np.array([e0, d0])
+        knots_upper = knots_upper[np.newaxis, :, :]
+
+        knots = np.concatenate((knots_upper, knots_lower))
+        weights = np.ones(knots.shape[:2])
+
+        basisx = src.bspline.BSplineBasisJAX(np.array([-1,1]),1)
+        basisy = src.bspline.BSplineBasisJAX(np.array([-1,1]),1)
+        air2 = src.geometry.PatchNURBSParam([basisx, basisy], knots, weights, 0, 2, key)
+        return air2
+
+
+    def mke_iron_pole():
+        knots_lower = np.array([b0, b1, b2])
+
+        knots_lower = knots_lower[np.newaxis, :, :]
+
+        knots_upper = np.array([c3, c0, d0])
+        knots_upper = knots_upper[np.newaxis, :, :]
+        knots_pole = np.concatenate((knots_upper, knots_lower))
+        weights_pole = np.ones(knots_pole.shape[:2])
+        weights_pole[1,1] = 0.7
+
+        basisx = src.bspline.BSplineBasisJAX(np.array([-1,1]),2)
+        basisy = src.bspline.BSplineBasisJAX(np.linspace(-1,1,2),1)
+        iron_pole = src.geometry.PatchNURBSParam([basisy, basisx], knots_pole, weights_pole, 0, 2, key) 
+        return iron_pole
+
+
+    air1 = mke_air1()
+    air2 = mke_air2()
+    iron_pole = mke_iron_pole()
+    return [air1, air2, iron_pole]
+
+#create_geometry(rnd_key)
+#geoms = mke_quadrupole_geo(rnd_key)
+
+#bnd_samples = sample_bnd(1000)
+#pts = [i.importance_sampling(1000)[0] for i in geoms]
+#[plt.scatter(i[:,0], i[:,1]) for i in pts]
+
+#cs = ['r', 'b', 'k', 'y']
+#l = 1
+#[plt.scatter(geoms[l].__call__(i)[:,0], geoms[l].__call__(i)[:,1], c = j) for i,j in zip(bnd_samples, cs)]
+#plt.savefig('new_geo.png')
+#exit()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def mke_merged_patch(key):
-    knots_upper_air3 = np.array([[0.0912132, 0.0487868], [0.1, 0.035], [0.14205454, 0.05261638]]) 
-    knots_upper_air3 = knots_upper_air3[np.newaxis, :, :]
-    knots_lower_air3 = np.array([[0.0912132, 0], [0.1, 0], [0.15121145, 0]]) 
-    knots_lower_air3 = knots_lower_air3[np.newaxis, :, :]
-    knots_mid_air3 = 0.5*(knots_lower_air3 + knots_upper_air3) 
-    knots = np.concatenate((knots_lower_air3, knots_mid_air3, knots_upper_air3), axis = 0)
+    a = [0.0912132, 0.0487868]
+    b = [0.1, 0.035]
+    c = [0.0912132, 0]
+    d = [0.1, 0]
+    knots_upper_air2 = np.array([a,b]) 
+    knots_lower_air2 = np.array([c,d]) 
+    knots_upper_air2 = knots_upper_air2[np.newaxis, :, :]
+    knots_lower_air2 = knots_lower_air2[np.newaxis, :, :]
+
+    knots_mid_air2 = 0.5*(knots_lower_air2 + knots_upper_air2) 
+    knots = np.concatenate((knots_lower_air2, knots_mid_air2, knots_upper_air2), axis = 0)
     weights = np.ones(knots.shape[:2])
     basis1 = src.bspline.BSplineBasisJAX(np.array([-1,0,1]),1)
-    basis2 = src.bspline.BSplineBasisJAX(np.array([-1,0,1]),1)
+    basis2 = src.bspline.BSplineBasisJAX(np.array([-1,1]),1)
+    air_2 = src.geometry.PatchNURBSParam([basis1, basis2], knots, weights, 0, 2, key)
+
+
+
+    a = [0.1, 0.035]
+    b = [0.14205454, 0.05261638]
+    c = [0.1, 0]
+    d = [0.15121145, 0]
+
+    knots_upper_air3 = np.array([d,c]) 
+    knots_lower_air3 = np.array([b,a]) 
+
+    knots_upper_air3 = knots_upper_air3[np.newaxis, :, :]
+    knots_lower_air3 = knots_lower_air3[np.newaxis, :, :]
+    knots_mid_air3 = 0.5*(knots_lower_air3 + knots_upper_air3) 
+    knots = np.concatenate((knots_upper_air3, knots_mid_air3, knots_lower_air3), axis = 0)
+    weights = np.ones(knots.shape[:2])
+    basis1 = src.bspline.BSplineBasisJAX(np.array([-1,0,1]),1)
+    basis2 = src.bspline.BSplineBasisJAX(np.array([-1,1]),1)
     air_3 = src.geometry.PatchNURBSParam([basis1, basis2], knots, weights, 0, 2, key)
 
     knots_upper_air1 = np.array([[0.03, 0.03], [0.045, 0.01], [0.07, 0.02755176], [0.07, 0.02755176], [0.0912132, 0.0487868]]) 
@@ -203,50 +355,13 @@ def mke_merged_patch(key):
     air_1 = src.geometry.PatchNURBSParam([basis1, basis2], knots, weights, 0, 2, key)
 
     air_1_pts, diffs = air_1.importance_sampling(10000)
+    air_2_pts, diffs = air_2.importance_sampling(5000)
     air_3_pts, diffs = air_3.importance_sampling(10000)
     plt.scatter(air_1_pts[:,0], air_1_pts[:,1], s = 0.1)
+    plt.scatter(air_2_pts[:,0], air_2_pts[:,1], s = 0.1)
     plt.scatter(air_3_pts[:,0], air_3_pts[:,1], s = 0.1)
     plt.savefig('./cer.png')
-    return air_1, air_3
-
-
-def sample_bnd(N):
-    ys = np.linspace(-1,1,100)
-    ys = ys[:,np.newaxis]
-    one_vec = np.ones_like(ys)
-
-    ys_top = np.concatenate((ys, one_vec), axis = 1)
-    ys_bottom = np.concatenate((ys, -1 * one_vec), axis = 1)
-
-    ys_left = np.concatenate((-1* one_vec, ys), axis = 1) 
-    ys_right = np.concatenate((one_vec, ys), axis = 1) 
-    bnd_pts = np.array([ys_top, ys_right, ys_bottom, ys_left])
-    bnd_pts = np.reshape(bnd_pts, (bnd_pts.shape[0]*bnd_pts.shape[1], 2))
-    return [ys_right, ys_bottom, ys_left, ys_top] 
-
-
-
-#bnd_samples = sample_bnd(1000)
-#air_c, air_rest = mke_merged_patch(rnd_key)
-#iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, _, _, air_3, current  = create_geometry(rnd_key)
-
-
-#geoms = [iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_c, air_rest, current]
-#ys = np.linspace(-1,1,100)
-#xx,yy = np.meshgrid(ys, ys)
-#input_vec = np.concatenate((xx.flatten()[:,np.newaxis], yy.flatten()[:,np.newaxis]), axis = 1)
-#plt.figure()
-#[plt.scatter(i.__call__(input_vec)[:,0], i.__call__(input_vec)[:,1], s=0.1) for i in geoms]
-
-#ys = np.linspace(-1,1,100)
-#ys = ys[:,np.newaxis]
-#one_vec = np.ones_like(ys)
-#ys_right = np.concatenate((one_vec, ys), axis = 1)
-#ys_top = np.concatenate((ys, one_vec), axis = 1)
-#plt.scatter(current.__call__(ys_top)[:,0], current.__call__(ys_top)[:,1], c = 'b')
-#cs = ['r', 'b', 'k', 'y']
-#[plt.scatter(air_rest.__call__(i)[:,0], air_rest.__call__(i)[:,1], c = j) for i,j in zip(bnd_samples, cs)]
-#plt.savefig('./patched_up.png')
+    return air_1, air_2, air_3
 
 
 

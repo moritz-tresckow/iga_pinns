@@ -67,6 +67,17 @@ def evaluate_quad_nonlin(model, params, ys, x):
     return [u1, u2, u3, u4], vmin, vmax
 
 
+def evaluate_quad_new(model, params, ys, x):
+    model.weights = params
+    weights = params 
+    u1 = model.solution1(weights, ys).reshape(x.shape)
+    u5 = model.solution5(weights, ys).reshape(x.shape)
+    u6 = model.solution6(weights, ys).reshape(x.shape)
+
+    vmin = min([u1.min(),u5.min(),u6.min()]) 
+    vmax = max([u1.max(),u5.max(),u6.max()])
+    return [u1, u5, u6], vmin, vmax
+
 def cal_L2_error(ref_val, cal_val, msh):
     difference = (cal_val - ref_val)**2
     error = cal_functional(difference, msh)
@@ -74,20 +85,36 @@ def cal_L2_error(ref_val, cal_val, msh):
     return 0
 
 
+def cal_coordinates(geoms):
+    x,y = np.meshgrid(np.linspace(-1,1,100),np.linspace(-1,1,100))
+    ys = np.concatenate((x.flatten()[:,None],y.flatten()[:,None]),1)
+    outputs = []
+    for i in geoms:
+        out = i.__call__(ys)
+        outputs.append(out)
+    outputs = np.array(outputs)
+    outputs = np.reshape(outputs, (outputs.shape[0]*outputs.shape[1],2))
+    return outputs
 
-def evaluate_error(model, params, evaluation_func, model_idxs, path_coor, path_vals):
-    coordinates = np.loadtxt(path_coor, delimiter = ',')
-    meshfile = './fem_ref/fenicsx_mesh/quad/quad_dirichlet/quad_dirichlet' 
+
+
+def evaluate_error(model, params, evaluation_func, model_idxs, geoms):
+    coordinates = cal_coordinates(geoms)
+    #coordinates = np.loadtxt(path_coor, delimiter = ',')
+    meshfile = './fem_ref/fenicsx_mesh/quad_simple/quad_simple' 
+    # meshfile = './fem_ref/fenicsx_mesh/quad_new/quad_new' 
     ref_values = calc_eq(meshfile, [model.mu0, model.mur], model.J0, coordinates)
-    # ref_values = np.loadtxt(path_vals, delimiter = ',')
+    #ref_values2 = np.loadtxt(path_vals, delimiter = ',')
+
     x,y = np.meshgrid(np.linspace(-1,1,100),np.linspace(-1,1,100))
     ys = np.concatenate((x.flatten()[:,None],y.flatten()[:,None]),1)
     sol_model, vmin, vmax = evaluation_func(model, params, ys, x)
+    print('The min and max of the NN models is: ', vmin, vmax)
 
-    print(vmin, vmax)
-    vmin = np.amin(ref_values)
-    vmax = np.amax(ref_values)
-    print(vmin, vmax)
+    #vmin = np.amin(ref_values)
+    #vmax = np.amax(ref_values)
+    #print('The min and max of the reference is: ', vmin, vmax)
+
     vmin = 0
     vmax = 0.3 
     error = [] 
@@ -113,10 +140,10 @@ def evaluate_error(model, params, evaluation_func, model_idxs, path_coor, path_v
         print('The relative error in domain ', i + 1, ' is ', relative_error_domain*100, ' %')
         # plt.contourf(xx, yy, sol_model[i], norm = norm, levels = 100)
         plt.contourf(xx, yy, error_local, norm = norm, levels = 100)
-        #plt.contourf(xx, yy, uu, norm = norm, levels = 100)
+        # plt.contourf(xx, yy, uu, norm = norm, levels = 100)
     plt.colorbar(m)
     # plt.show()
-    plt.savefig('./complete_fig.png')
+    plt.savefig('./complete_fig2.png')
     error_tot = np.sum(error)
     relative = error_tot/np.sum(np.abs(ref_values))
     print('The relative error amounts to ', relative*100, ' %')

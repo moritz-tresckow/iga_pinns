@@ -70,18 +70,20 @@ def mk_source(msh, ct, vertices,  source_markers, source_vals):
 def curl2D(v):
     return ufl.as_vector((v.dx(1), v.dx(0)))
 
-def calc_eq(meshfile, mu, js, coordinates):
+def calc_eq(meshfile, mu, js, coordinates = 0):
     msh, ct, msh_l, ct_l= load_mesh(meshfile)
     V = dolfinx.fem.FunctionSpace(msh, ('Lagrange',1))
     vertices = V.tabulate_dof_coordinates() 
     #vertices = vertices[:,0:2]
 
-    boundary_markers = [5,6] # 17: homogeneous DBc, 16: inhomogeneous DBc
+    #boundary_markers = [5,6] # 17: homogeneous DBc, 16: inhomogeneous DBc
+    boundary_markers = [16] # 17: homogeneous DBc, 16: inhomogeneous DBc
     dirichlet_vals = [0]	
     material_markers = [1,2,3] # 15: outer space, 14: conductive area 
     mu0 = mu[0]
     mur = mu[1] 
-    material_vals = [1/mu0, 0, 1/mu0]	
+    #material_vals = [1/mu0, 0, 1/mu0]	
+    material_vals = [1/(mu0*mur), 1/mu0, 1/mu0]	
 
     def locate_dofs(idx):
         dirichlet_facets = ct_l.find(idx)
@@ -106,7 +108,6 @@ def calc_eq(meshfile, mu, js, coordinates):
     j_source = mk_source(msh, ct, vertices, source_markers, source_vals)	
 
 
-    # A = nu*ufl.dot(ufl.grad(u), ufl.grad(v))*ufl.dx 
     k1 = 1 
     k2 = 1.65
     k3 = 500
@@ -115,7 +116,8 @@ def calc_eq(meshfile, mu, js, coordinates):
         out = k1*ufl.operators.exp((k2*x + k3))
         return out
 
-    A = ufl.dot(nu*curl2D(u), curl2D(v))*dx(1) + ufl.dot((1/(mu0*mur))*curl2D(u), curl2D(v))*dx(2) + ufl.dot(nu*curl2D(u), curl2D(v))*dx(3)
+    A = nu*ufl.dot(ufl.grad(u), ufl.grad(v))*ufl.dx 
+    # A = ufl.dot(nu*curl2D(u), curl2D(v))*dx(1) + ufl.dot((1/(mu0*mur))*curl2D(u), curl2D(v))*dx(2) + ufl.dot(nu*curl2D(u), curl2D(v))*dx(3)
     A = dolfinx.fem.form(A)
     lhs = dolfinx.fem.petsc.assemble_matrix(A, bcs)
     lhs.assemble()
@@ -151,6 +153,9 @@ def calc_eq(meshfile, mu, js, coordinates):
     rhs.ghostUpdate(addv=PETSc.InsertMode.ADD_VALUES, mode = PETSc.ScatterMode.REVERSE)
     dolfinx.fem.petsc.set_bc(rhs, bcs)
     solver.solve(rhs, uh.vector)
+
+    print('Minimum', np.amin(uh.x.array))
+    print('Maximum', np.amax(uh.x.array))
     print('Calculated something!!')
 
     def eval_on_coordinates(uh, domain, coordinates):
@@ -160,10 +165,13 @@ def calc_eq(meshfile, mu, js, coordinates):
         cell_candidates = dolfinx.geometry.compute_collisions(bb_tree, coordinates) 
         colliding_cells = dolfinx.geometry.compute_colliding_cells(domain, cell_candidates, coordinates)
         for i, point in enumerate(coordinates):
-            if len(colliding_cells.links(i))>0:
-                cells.append(colliding_cells.links(i)[0])
-            else:
-                cells.append(cell_candidates.links(i)[0])
+            try:
+                if len(colliding_cells.links(i))>0:
+                    cells.append(colliding_cells.links(i)[0])
+                else:
+                    cells.append(cell_candidates.links(i)[0])
+            except:
+                cells.append(0)
         sol = uh.eval(coordinates, cells)
         return sol
     sol = eval_on_coordinates(uh, msh, coordinates)
@@ -206,9 +214,10 @@ def plot_on_coordinates(ref_values):
 
 
 
-#meshfile = './fem_ref/fenicsx_mesh/quad/quad_dirichlet/quad_dirichlet'
+#meshfile = './fem_ref/fenicsx_mesh/quad_new/quad_new'
 #path_coors = './fem_ref/coordinates.csv'
 #coordinates = np.loadtxt(path_coors, delimiter = ',')
-#ref_values = calc_eq(meshfile, [1,1e11], 1000, coordinates)
+#coordinates = 0
+# ref_values = calc_eq(meshfile, [1,2000], 1000, coordinates)
 #print(np.amax(ref_values), np.amin(ref_values))
 #plot_on_coordinates(ref_values)

@@ -16,14 +16,30 @@ import scipy.optimize
 from jax.config import config
 config.update("jax_enable_x64", True)
 rnd_key = jax.random.PRNGKey(1234)
-from mke_geo import create_geometry, plot_solution, plot_single_domain, plot_bndr
-# from post_processing import evaluate_models, evaluate_error, evaluate_air
+from mke_geo import *
+from post_processing import evaluate_models, evaluate_error, evaluate_air
 
 
 
 # Geometry parametrizations
-iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_1, air_2, air_3, current  = create_geometry(rnd_key)
-#air_1, air_2 = mke_merged_patch(rnd_key)
+bnd_samples = sample_bnd(1000)
+iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, _, _, _, current  = create_geometry(rnd_key)
+air_1, air_2, air_3 = mke_merged_patch(rnd_key)
+geoms = [iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_1, air_2, air_3, current]
+ys = np.linspace(-1,1,100)
+xx,yy = np.meshgrid(ys, ys)
+input_vec = np.concatenate((xx.flatten()[:,np.newaxis], yy.flatten()[:,np.newaxis]), axis = 1)
+plt.figure()
+[plt.scatter(i.__call__(input_vec)[:,0], i.__call__(input_vec)[:,1], s=0.1) for i in geoms]
+
+ys = np.linspace(-1,1,100)
+ys = ys[:,np.newaxis]
+one_vec = np.ones_like(ys)
+ys_right = np.concatenate((one_vec, ys), axis = 1)
+ys_top = np.concatenate((ys, one_vec), axis = 1)
+cs = ['r', 'b', 'k', 'y']
+[plt.scatter(air_3.__call__(i)[:,0], air_3.__call__(i)[:,1], c = j) for i,j in zip(bnd_samples, cs)]
+plt.savefig('./patched_up.png')
 
 def interface_function2d(nd, endpositive, endzero, nn):
     # Interface function whether the interface is in x or in y direction
@@ -44,7 +60,7 @@ def interface_function2d_inv(nd, endpositive, endzero, nn):
     # NN is defined on the boundary so only takes in 1 dimensional inputs
 
     faux = lambda x: ((x-endzero)**1/(endpositive-endzero)**1)
-    if nd == 0: # NN(y)*(x-endzero)/(endpositive - endzero)
+    if nd == 0: # NN(y)*(x-endzero)/(endpositive - endzero)ti
         fret = lambda ws, x: (nn.apply(ws, -1 * x[...,1][...,None]).flatten()*faux(x[...,0]))[...,None]
     else: # NN(x)*(y-endzero)/(endpositive - endzero)
         fret = lambda ws, x: (nn.apply(ws, -1 * x[...,0][...,None]).flatten()*faux(x[...,1]))[...,None]
@@ -84,19 +100,26 @@ class Model(src.PINN):
 
         # 5 Air1                                                
         self.add_flax_network('u5', feat_domain, act_domain, load, path)
+        # 6 Air2                                                
+        self.add_flax_network('u6', feat_domain, act_domain, load, path)
         # 7 Air3                                                  
         self.add_flax_network('u7', feat_domain, act_domain, load, path)
         # 8 Current                                                
         self.add_flax_network('u8', feat_domain, act_domain, load, path)
 
         # Interfaces to Air1                                
-        self.add_flax_network('u57', feat_bndr, act_bndr, load, path)
+        self.add_flax_network('u56', feat_bndr, act_bndr, load, path)
+        
+        # Interfaces to Air2                                
+        self.add_flax_network('u67', feat_bndr, act_bndr, load, path)
+        self.add_flax_network('u68', feat_bndr, act_bndr, load, path)
                                                              
         # Interfaces to Air3                                    
         self.add_flax_network('u78', feat_bndr, act_bndr, load, path)
 
         # self.add_trainable_parameter('u156',(1,), load_p, path) 
-        self.add_trainable_parameter('u578',(1,), load_p, path) 
+        self.add_trainable_parameter('u568',(1,), load_p, path) 
+        self.add_trainable_parameter('u678',(1,), load_p, path) 
 
         
 
@@ -104,16 +127,27 @@ class Model(src.PINN):
         #          5. Air1,    6. Air2,     7. Air3,                  8. Current
         #------------------------------------------------------------------------------#
         # Air1 -> Air3   |   NN(x)* 1/2(y+1)   => (1, 1, -1) 
-        self.interface57 = interface_function2d(1, 1.0, -1.0,self.neural_networks['u57'])
-        # Air3 -> Air1   |   NN(x)* 1/2(y+1)  => (1, 1, -1) 
-        self.interface75 = interface_function2d_inv(1, 1.0, -1.0,self.neural_networks['u57'])
-        
+        self.interface56 = interface_function2d(1, 1.0, -1.0,self.neural_networks['u56'])
+        # Air3 -> Air1   |   NN(x)* -1/2(1-y)  => (1, -1, 1) 
+        self.interface65 = interface_function2d(1, -1.0, 1.0,self.neural_networks['u56'])
+
+         #------------------------------------------------------------------------------#
+        # Air1 -> Air3   |   NN(x)* 1/2(y+1)   => (1, 1, -1) 
+        self.interface67 = interface_function2d(1, 1.0, -1.0,self.neural_networks['u67'])
+        # Air3 -> Air1   |   NN(x)* -1/2(1-y)  => (1, -1, 1) 
+        self.interface76 = interface_function2d(1, 1.0, -1.0,self.neural_networks['u67']) 
 
         #------------------------------------------------------------------------------#
-        # Air3 -> Current   |   NN(y)* 1/2(x+1)   => (0, 1, -1) 
-        self.interface78 = interface_function2d(0, 1.0, -1.0,self.neural_networks['u78'])
+        # Air1 -> Air3   |   NN(y)* 1/2(x+1)   => (0, 1, -1) 
+        self.interface68 = interface_function2d(0, 1.0, -1.0,self.neural_networks['u68'])
+        # Air3 -> Air1   |   NN(x)* 1/2(y+1)  => (1, 1, -1) 
+        self.interface86 = interface_function2d(1, 1.0, -1.0,self.neural_networks['u68'])   
+
+        #------------------------------------------------------------------------------#
         # Current -> Air3   |   NN(y)* 1/2(x+1)   => (0, 1, -1) 
         self.interface87 = interface_function2d(0, 1.0, -1.0,self.neural_networks['u78'])
+        
+        self.interface78 = interface_function2d(0, 1.0, -1.0,self.neural_networks['u78'])
         
         
         self.mu0 = 1
@@ -135,6 +169,10 @@ class Model(src.PINN):
         points['ys5'] = ys
         points['ws5'] = Weights
         points['omega5'], points['G5'], points['K5'] = air_1.GetMetricTensors(ys)
+    
+        points['ys6'] = ys
+        points['ws6'] = Weights
+        points['omega6'], points['G6'], points['K6'] = air_2.GetMetricTensors(ys)     
         
         points['ys7'] = ys
         points['ws7'] = Weights
@@ -144,12 +182,13 @@ class Model(src.PINN):
         points['ws8'] = Weights
         points['omega8'], points['G8'], points['K8'] = current.GetMetricTensors(ys)
         
+
         return points
 
     def solution5(self, ws, x):
         #------------------------------------------------------------------------------#
-        #                                       7
-        #                             (578) x--------  
+        #                                       6
+        #                                   +--------x568  
         #                                   |        |
         # 5. Domain : Air1                N |   5    | 1
         #                                   |        |
@@ -166,27 +205,67 @@ class Model(src.PINN):
         v = ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
         
 
-        w57 = self.interface56(ws['u57'],x) * (1 - x[...,0])[...,None]
+        w56 = self.interface56(ws['u56'],x) * (1 - x[...,0])[...,None]
         #------------------------------------------------------------------------------#
         # w57 = NN_{57}(x) * 1/2(y+1) * (1-x)                   |   
 
         # Function coinciding on the multiple subdomains
         #------------------------------------------------------------------------------#
-        w578 = ws['u578']*( (1 - x[...,0]) * ( x[...,1] + 1) )[...,None]**alpha
+        w568 = ws['u568']*( (x[...,0] + 1) * ( x[...,1] + 1) )[...,None]**alpha
         #------------------------------------------------------------------------------#
-        w =  w57 + w578
+        w =  w56  + w568
         return u * v + w
+
+
+    def solution6(self, ws, x):
+        #print('s6: ')
+        #print('The input shape is ', (x).shape)
+        #print(x)
+        #------------------------------------------------------------------------------#
+        #                                       7
+        #                                    --------x678  
+        #                                   |        |
+        # 6. Domain : Air2                N |   6    | 8
+        #                                   |        |
+        #                                    --------x568   
+        #                                       5
+        #------------------------------------------------------------------------------#
+        alpha = 2
+
+        # NN defined on the Air1 domain
+        u = self.neural_networks['u6'].apply(ws['u6'],x)
+        
+        # Ansatz Function: v(x,y) = (1-y)*(1+y) -> (x+1)
+        #------------------------------------------------------------------------------#
+        v = ((1 - x[...,0]) * (1 - x[...,1]) * (x[...,1] + 1))[...,None]
+        
+
+        w65 = self.interface65(ws['u56'],x) *  (1 - x[...,0])[...,None]
+        w67 = self.interface67(ws['u67'],x) *  (1 - x[...,0])[...,None]
+        w68 = self.interface68(ws['u68'],x) * ((1 + x[...,1]) * (1 - x[...,1]))[...,None]
+        #------------------------------------------------------------------------------#
+        # w57 = NN_{57}(x) * 1/2(y+1) * (1-x)                   |   
+
+        # Function coinciding on the multiple subdomains
+        #------------------------------------------------------------------------------#
+        w678 = ws['u678']*( (1 + x[...,0]) * ( x[...,1] + 1) )[...,None]**alpha
+        w568 = ws['u568']*( (1 + x[...,0]) * ( 1 - x[...,1]) )[...,None]**alpha
+        #------------------------------------------------------------------------------#
+        w =  w67 + w65 + w68 + w678+ w568
+
+        return u * v + w
+
 
 
     def solution7(self, ws, x):
         #------------------------------------------------------------------------------#
-        #                                       4
+        #                                       6
         #                                    --------  
         #                                   |        |
         # 7. Domain : Air3                N |   7    | 8
         #                                   |        |
-        #                                    --------x578    
-        #                                       5
+        #                                    --------    
+        #                                       4 
         #------------------------------------------------------------------------------#
         alpha = 2
         
@@ -195,36 +274,37 @@ class Model(src.PINN):
 
         # Ansatz Function: v(x,y) = (x+1)*(1-y)*(y+1) -> (1-x) missing due to Neumann bc
         #------------------------------------------------------------------------------#
-        v = ((1 - x[...,0] ) * (x[...,1] + 1))[...,None]
+        v = ((1 - x[...,0] ) * (1 - x[...,1]))[...,None]
         
         # Interface functions for the Air3 domain 
         #------------------------------------------------------------------------------#
-        #w78 = (self.interface78(ws['u78'],x)) * ((1 - x[...,1]))[...,None]
+        w76 = self.interface76(ws['u67'],x) * (1 - x[...,0])[...,None]
 
-        w78 = self.neural_networks['u78'].apply(ws['u78'], (x[...,1])[...,None]) * (1/2) * (x[...,0] + 1)[...,None]
+        w78 = self.interface78(ws['u78'],x) * (1 - x[...,1])[...,None]
         #------------------------------------------------------------------------------#
         # w78 = (NN_{78}(y) * (1/2(x+1)) * (1-y)      |
 
         # Function coinciding on multiple subdomains
         #------------------------------------------------------------------------------#
-        w578  = ws['u578']  *  ( (x[...,0] + 1) * (1 - x[...,1]) )[...,None]**alpha
+        w678  = ws['u678']  *  ((1 + x[...,0] ) * (1 + x[...,1]) )[...,None]**alpha
 
         #------------------------------------------------------------------------------#
-        # w578  = u_{578}  * ((x+1)*(1-y))^alpha    |
+        # w678  = u_{678}  * ((x+1)*(1-y))^alpha    |
 
-        w = w78 # + w578
-        return u * v + w
+        w =  w78 + w76 + w678
+
+        return  u*v + w
 
 
 
     def solution8(self, ws, x):
         #------------------------------------------------------------------------------#
-        #                                       7a
-        #                                    --------  
+        #                                       6 
+        #                                568x--------x678  
         #                                   |        |
-        # 8. Domain : Current             2 |   8    | 7b
+        # 8. Domain : Current             2 |   8    | 7
         #                                   |        |
-        #                                    --------x578    
+        #                                   +--------+    
         #                                       3
         #------------------------------------------------------------------------------#
         alpha = 2
@@ -235,25 +315,22 @@ class Model(src.PINN):
         # Ansatz Function: v(x,y) = (1-x)*(1-y)
         #------------------------------------------------------------------------------#
         v = ((1 - x[...,0]) * (1 - x[...,1]) )[...,None]
-        print(0.5 * (x[...,0] - 1)[...,None])
-        print(-0.5 * (x[...,1] - 1)[...,None])
-        eps = 1e-3 
-        factor2 = jnp.heaviside(0.5 * (x[...,0] - 1)[...,None],0.5)
-        factor1 = jnp.heaviside(0.5 * (x[...,1] - 1)[...,None],0.5)
-        w87a = factor1 * self.neural_networks['u78'].apply(ws['u78'], ( 0.5 * (x[...,0] - 1)[...,None])) * (1/2) * (x[...,1] + 1)[...,None] 
-        w87b = factor2 * self.neural_networks['u78'].apply(ws['u78'], (-0.5 * (x[...,1] - 1)[...,None])) * (1/2) * (x[...,0] + 1)[...,None]
         
 
+        w86 = self.interface86(ws['u68'],x) * ((x[...,0] + 1) * (1 - x[...,0]))[...,None]
+        w87 = self.interface87(ws['u78'],x) * (1 - x[...,1])[...,None]
 
-                              #------------------------------------------------------------------------------#
+        #------------------------------------------------------------------------------#
         # w87 = (                                                          |  
         #           NN_{78}(y)* 1/2(x+1)*(1-y)(y+1)                        |  
         
         # Function coinciding on multiple subdomains
         #------------------------------------------------------------------------------#
-        # w578  = ws['u578'] * ( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha 
-        w =  w87a + w87b
-        return u * v + w
+        w678 = ws['u678']*( (1 + x[...,0]) * ( x[...,1] + 1) )[...,None]**alpha
+        w568 = ws['u568']*( (1 - x[...,0]) * ( x[...,1] + 1) )[...,None]**alpha
+        w =  w87  + w86 + w678 + w568
+
+        return  u*v + w
         
 
     def nu_model(self, grad_a):
@@ -265,13 +342,14 @@ class Model(src.PINN):
     
     def loss_pde(self, ws, points):
         # Calculate the spatial gradients grad(u) = (u_x, u_y) with at the quadrature points
-
         grad5 = src.operators.gradient(lambda x : self.solution5(ws,x))(points['ys5'])[...,0,:]
+        grad6 = src.operators.gradient(lambda x : self.solution6(ws,x))(points['ys6'])[...,0,:]
         grad7 = src.operators.gradient(lambda x : self.solution7(ws,x))(points['ys7'])[...,0,:]
         grad8 = src.operators.gradient(lambda x : self.solution8(ws,x))(points['ys8'])[...,0,:]
         
         #---------------------------------Air + Excitation------------------------------------------------------------------# 
         lpde5 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad5,points['K5'],grad5), points['ws5'])  
+        lpde6 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad6,points['K6'],grad6), points['ws6'])  
         lpde7 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad7,points['K7'],grad7), points['ws7'])  
         lpde8 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad8,points['K8'],grad8), points['ws8'])  \
                         - jnp.dot(self.J0*self.solution8(ws,points['ys8']).flatten()*points['omega8'] , points['ws8'])
@@ -279,17 +357,9 @@ class Model(src.PINN):
 
 
         # Sum up losses from the individual subdomains
-        lpde_air  = lpde5+lpde7+lpde8
+        lpde_air  = lpde5+lpde6+lpde7+lpde8
         return lpde_air #+ lpde_iron     
-    
 
-    def loss_neum(self, ws, points):
-        cc = src.operators.gradient(lambda x : model.solution7(ws,x))(points['ys_bnd7'])
-        out = model.solution7(ws, points['ys_bnd7'])
-        cc = cc[:,:,1] * out * points['omega_bnd7']
-        cc= cc* points['ws_bnd7']
-        val = jnp.sum(cc)
-        return val 
 
     def loss(self, ws, pts):
         lpde = self.loss_pde(ws, pts)
@@ -304,44 +374,74 @@ weights = model.weights                 # Retrieve weights to initialize the opt
 #------------------------------Optimization parameters ------------------------------------#
 opt_type = 'ADAMax'                                                         # Optimizer name
 batch_size = 10000                                                          # Number of sample points for quadrature (MC integration) 
-stepsize = 0.001                                                           # Stepsize for Optimizer aka. learning rate
-n_epochs = 250                                                             # Number of optimization epochs
+stepsize = 0.0001                                                           # Stepsize for Optimizer aka. learning rate
+n_epochs = 1000                                                             # Number of optimization epochs
 path_coor = './fem_ref/coordinates.csv'                                     # Path to coordinates to evaluate the NN solution
 path_refs = './parameters/quad/mu_2k/ref_values.csv'                        # FEM reference solution
 
 opt_init, opt_update, get_params = optimizers.adamax(step_size=stepsize)    # Instantiate the optimizer
 opt_state = opt_init(weights)                                               # Initialize the optimizer with the NN weights
 params = get_params(opt_state)                                              # Retrieve the trainable weights for the optimizer as a dict
+verbose =True 
+if verbose == True:
 
-ys = np.linspace(-1,1,100)
-ys = ys[:,np.newaxis]
-one_vec = np.ones_like(ys)
-ys_right = np.concatenate((one_vec, -1*ys), axis = 1)
-ys_top = np.concatenate((ys, one_vec), axis = 1)
-print('start calc')
-sol2 = model.solution8(params, ys_right)
-sol = model.solution8(params, ys_top)
-sol = np.concatenate((sol, sol2))
-
-ys = np.linspace(-1,1,200)
-ys = ys[:,np.newaxis]
-one_vec = np.ones_like(ys)
-ys_right = np.concatenate((one_vec, ys), axis = 1)
-sol_ref = model.solution7(params, ys_right)
-plt.plot(sol)
-plt.plot(sol_ref)
-plt.show()
-print(sol.shape)
-exit()
+    ys = np.linspace(-1,1,100)
+    ys = ys[:,np.newaxis]
+    one_vec = np.ones_like(ys)
+    ys_right = np.concatenate((one_vec, -1*ys), axis = 1)
+    ys_bottom = np.concatenate((-1*ys, -1*one_vec), axis = 1)
+    ys_left = np.concatenate((-1*one_vec, ys), axis = 1)
+    ys_top = np.concatenate((ys, one_vec), axis = 1)
+    print('start calc')
+    sol1 = model.solution5(params, ys_top)
+    sol2 = model.solution6(params, ys_bottom)
+    print(np.sum(np.abs(sol1 - np.flip(sol2))))
+    plt.figure()
+    plt.plot(ys.flatten(), sol1, label = 'u56')
+    plt.plot(ys.flatten(), np.flip(sol2), label = 'u65')
+    plt.legend()
+    plt.savefig('./bnd56.png')
 
 
+    sol1 = model.solution6(params, ys_top)
+    sol2 = model.solution7(params, ys_top)
+    print(np.sum(np.abs(sol1 - sol2)))
+    plt.figure()
+    plt.plot(ys.flatten(), sol1, label = 'u67')
+    plt.plot(ys.flatten(), sol2, label = 'u76')
+    plt.legend()
+    plt.savefig('./bnd67.png')
 
-evaluate_error(model, params, evaluate_air,[4,5,6,7], path_coor, path_refs)        # Evaluate the model error before training
+    sol1 = model.solution6(params, ys_right)
+    sol2 = model.solution8(params, ys_top)
+    print(np.sum(np.abs(sol1 - np.flip(sol2))))
+    plt.figure()
+    plt.plot(ys.flatten(), sol1, label = 'u68')
+    plt.plot(ys.flatten(), np.flip(sol2), label = 'u86')
+    plt.legend()
+    plt.savefig('./bnd68.png')
+
+
+    sol1 = model.solution7(params, ys_right)
+    sol2 = model.solution8(params, ys_right)
+    print(np.sum(np.abs(sol1 - sol2)))
+    plt.figure()
+    plt.plot(ys.flatten(), sol1, label = 'u78')
+    plt.plot(ys.flatten(), sol2, label = 'u87')
+    plt.legend()
+    plt.savefig('./bnd78.png')
+
+
+#evaluate_error(model, params, evaluate_air,[4,5,6,7], path_coor, path_refs)        # Evaluate the model error before training
 loss_grad = jax.jit(lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(ws, pts))) # JIT compile the loss function before training
 
 key = jax.random.PRNGKey(np.random.randint(777623))                     # Generate an PRND key to initialize the MC sampling routine
 points = model.get_points_MC(batch_size, key)                               # Generate the MC samples
+model.loss_pde(params, points)
 
+
+geoms = [iron_pole, iron_yoke, iron_yoke_r_mid, iron_yoke_r_low, air_1, air_2, air_3, current]
+evaluate_error(model, params, evaluate_air,[4,5,6,7], geoms, path_refs)
 #------------------------------Optimization Step-------------------------------------------#
 def step(params, opt_state, key):
     # points = model.get_points_MC(batch_size, key)
@@ -368,4 +468,7 @@ tme = datetime.datetime.now() - tme
 print('Elapsed time ', tme)
 save_models(params, './parameters/quad/')
 print('Erfolgreich gespeichert!!')
-evaluate_error(model, params, evaluate_air,[4,5,6,7], path_coor, path_refs)
+
+
+
+evaluate_error(model, params, evaluate_air,[4,5,6,7], geoms, path_refs)
