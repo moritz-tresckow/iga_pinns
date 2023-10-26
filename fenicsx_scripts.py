@@ -76,14 +76,11 @@ def calc_eq(meshfile, mu, js, coordinates = 0):
     vertices = V.tabulate_dof_coordinates() 
     #vertices = vertices[:,0:2]
 
-    boundary_markers = [5,6] # 17: homogeneous DBc, 16: inhomogeneous DBc
-    #boundary_markers = [16] # 17: homogeneous DBc, 16: inhomogeneous DBc
+    boundary_markers = [5] 
     dirichlet_vals = [0]	
-    material_markers = [1,2,3] # 15: outer space, 14: conductive area 
+    material_markers = [1,2,3] 
     mu0 = mu[0]
     mur = mu[1] 
-    #material_vals = [1/mu0, 0, 1/mu0]	
-    #material_vals = [1/(mu0*mur), 1/mu0, 1/mu0]	
     material_vals = [1/mu0, 1/(mu0*mur), 1/mu0]	
 
     def locate_dofs(idx):
@@ -108,25 +105,15 @@ def calc_eq(meshfile, mu, js, coordinates = 0):
     source_vals = [js]
     j_source = mk_source(msh, ct, vertices, source_markers, source_vals)	
 
-
-    k1 = 1 
-    k2 = 1.65
-    k3 = 500
-    def nu_Bauer(B):
-        x = ufl.inner(B,B)
-        out = k1*ufl.operators.exp((k2*x + k3))
-        return out
-
     A = nu*ufl.dot(ufl.grad(u), ufl.grad(v))*ufl.dx 
-    # A = ufl.dot(nu*curl2D(u), curl2D(v))*dx(1) + ufl.dot((1/(mu0*mur))*curl2D(u), curl2D(v))*dx(2) + ufl.dot(nu*curl2D(u), curl2D(v))*dx(3)
     A = dolfinx.fem.form(A)
     lhs = dolfinx.fem.petsc.assemble_matrix(A, bcs)
     lhs.assemble()
 
-    b = j_source*v*dx(3)
+    b = j_source*v*ufl.dx
     b = dolfinx.fem.form(b) 
     rhs = dolfinx.fem.petsc.create_vector(b)
-    
+    print(dolfinx.fem.assemble_scalar(dolfinx.fem.form(j_source*ufl.dx)))
     solver = PETSc.KSP().create(msh.comm)
     solver.setOperators(lhs)
     solver.setType(PETSc.KSP.Type.PREONLY)
@@ -145,12 +132,16 @@ def calc_eq(meshfile, mu, js, coordinates = 0):
     print('Maximum', np.amax(uh.x.array))
     print('Calculated something!!')
 
-    def eval_on_coordinates(uh, domain, coordinates):
+    def eval_on_coordinates(uh, domain, boundary, coordinates):
         bb_tree = dolfinx.geometry.BoundingBoxTree(domain, domain.topology.dim)
-        cells = []
+        bb_tree_bnd = dolfinx.geometry.BoundingBoxTree(boundary, boundary.topology.dim)
+        print(domain.topology.dim, boundary.topology.dim)
+        exit()
         coordinates = np.concatenate((coordinates, np.zeros((coordinates.shape[0], 1))), axis = 1)
         cell_candidates = dolfinx.geometry.compute_collisions(bb_tree, coordinates) 
+        boundary_candidates = dolfinx.geometry.compute_collisions(bb_tree_bnd, coordinates) 
         colliding_cells = dolfinx.geometry.compute_colliding_cells(domain, cell_candidates, coordinates)
+        cells = []
         for i, point in enumerate(coordinates):
             try:
                 if len(colliding_cells.links(i))>0:
@@ -158,10 +149,14 @@ def calc_eq(meshfile, mu, js, coordinates = 0):
                 else:
                     cells.append(cell_candidates.links(i)[0])
             except:
+                print(i, 'Substituting value')
                 cells.append(0)
         sol = uh.eval(coordinates, cells)
         return sol
-    sol = eval_on_coordinates(uh, msh, coordinates)
+    sol = eval_on_coordinates(uh, msh, msh_l, coordinates)
+    print('succ.')
+    exit()
+
     return sol 
 
 

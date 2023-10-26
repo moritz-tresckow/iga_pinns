@@ -53,7 +53,39 @@ def evaluate_air(model, params, ys, x):
     vmin = min([u1.min(),u2.min(),u3.min(),u4.min(),u5.min(),u6.min(),u7.min(),u8.min()]) 
     vmax = max([u1.max(),u2.max(),u3.max(),u4.max(),u5.max(),u6.max(),u7.max(),u8.max()])
     return [u1, u2, u3, u4, u5, u6, u7, u8], vmin, vmax
-                                                   
+        
+
+
+def evaluate_single_model(model, params, ys, x):
+    model.weights = params
+    weights = params 
+    u3 = model.solution3(weights, ys).reshape(x.shape)
+    vmin = u3.min() 
+    vmax = u3.max() 
+    return [u3], vmin, vmax
+
+def evaluate_double_model(model, params, ys, x):
+    model.weights = params
+    weights = params 
+    u1 = model.solution1(weights, ys).reshape(x.shape)
+    u3 = model.solution3(weights, ys).reshape(x.shape)
+    vmin = min([u1.min(),u3.min()]) 
+    vmax = max([u1.max(),u3.max()])
+    return [u1, u3], vmin, vmax
+
+
+
+def evaluate_quad_double_model(model, params, ys, x):
+    model.weights = params
+    weights = params 
+    u1 = model.solution1(weights, ys).reshape(x.shape)
+    u4 = model.solution4(weights, ys).reshape(x.shape)
+    vmin = min([u1.min(),u4.min()]) 
+    vmax = max([u1.max(),u4.max()])
+    return [u1, u4], vmin, vmax
+
+
+
 def evaluate_quad_nonlin(model, params, ys, x):
     model.weights = params
     weights = params 
@@ -112,7 +144,7 @@ def evaluate_error(model, params, evaluation_func, model_idxs, geoms, meshfile):
     #print('The min and max of the reference is: ', vmin, vmax)
 
     vmin = 0
-    vmax = 0.3 
+    vmax = 0.1 
     error = [] 
     plt.figure()
     norm = mpl.colors.Normalize(vmin = vmin, vmax = vmax)
@@ -134,9 +166,9 @@ def evaluate_error(model, params, evaluation_func, model_idxs, geoms, meshfile):
         error.append(np.sum(error_local))
         relative_error_domain = np.sum(error_local)/np.sum(np.abs(uu))
         print('The relative error in domain ', i + 1, ' is ', relative_error_domain*100, ' %')
-        # plt.contourf(xx, yy, sol_model[i], norm = norm, levels = 100)
-        plt.contourf(xx, yy, error_local, norm = norm, levels = 100)
-        # plt.contourf(xx, yy, uu, norm = norm, levels = 100)
+        #plt.contourf(xx, yy, sol_model[i], norm = norm, levels = 100)
+        plt.contourf(xx, yy, error_local, norm = norm, levels = 1000)
+        #plt.contourf(xx, yy, uu, norm = norm, levels = 100)
     plt.colorbar(m)
     # plt.show()
     plt.savefig('./complete_fig2.png')

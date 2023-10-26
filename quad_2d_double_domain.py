@@ -117,7 +117,7 @@ def create_geometry(key, scale = 1):
 
 geom1, geom2, geom3, geom4 = create_geometry(rnd_key)
 bnd_samples = sample_bnd(1000)
-geoms = [geom1, geom2, geom3]
+geoms = [geom1, geom2, geom3,geom4]
 
 
 def save_coordinates(geoms):
@@ -132,13 +132,13 @@ def save_coordinates(geoms):
     np.savetxt('./coordinates_simple.csv', outputs, delimiter = ',', comments = '')
     exit()
 
-#pts,_ = geom1.importance_sampling(1000)
+# pts,_ = geom1.importance_sampling(1000)
 # 
-#plt.figure()
-#plt.scatter(pts[:,0], pts[:,1], s = 1)
+# #plt.figure()
+# plt.scatter(pts[:,0], pts[:,1], s = 1)
 # 
-#pts,_ = geom2.importance_sampling(1000)
-#plt.scatter(pts[:,0],pts[:,1], s = 1)
+# pts,_ = geom2.importance_sampling(1000)
+# plt.scatter(pts[:,0],pts[:,1], s = 1)
 # 
 # pts,_ = geom3.importance_sampling(1000)
 # plt.scatter(pts[:,0],pts[:,1], s = 1)
@@ -148,10 +148,10 @@ def save_coordinates(geoms):
 # cs = ['r', 'b', 'k', 'y']
 # [plt.scatter(geom3.__call__(i)[:,0], geom3.__call__(i)[:,1], c = j) for i,j in zip(bnd_samples, cs)]
 # [plt.scatter(geom4.__call__(i)[:,0], geom4.__call__(i)[:,1], c = j) for i,j in zip(bnd_samples, cs)]
-#plt.savefig('./patched_up_small.png')
+# plt.savefig('./patched_up_small.png')
 # #plt.show()
 # #%% Define the model
-
+# exit()
 
 def interface_function2d(nd, endpositive, endzero, nn):
     # Interface function whether the interface is in x or in y direction
@@ -190,7 +190,7 @@ class Model(src.PINN):
         
         feat_domain = [2, nl, nl, 1] 
         feat_bndr = [1, nl_bndr, nl_bndr, 1] 
-        path = './parameters/quad_simple_neum/'
+        path = './parameters/quad_simple/'
         act_domain = nn.tanh
         act_bndr = nn.tanh
 
@@ -251,7 +251,8 @@ class Model(src.PINN):
 
         # self.mu0 = 0.001
         self.mu0 = 1
-        self.mur = 2000
+        # self.mur = 2000
+        self.mur = 1 
         # self.J0 =  1000000
         self.J0 =  1000
 
@@ -282,6 +283,10 @@ class Model(src.PINN):
         points['ys3'] = ys
         points['ws3'] = Weights
         points['omega3'], points['G3'], points['K3'] = geom3.GetMetricTensors(ys)
+       
+        points['ys4'] = ys
+        points['ws4'] = Weights
+        points['omega4'], points['G4'], points['K4'] = geom4.GetMetricTensors(ys)
 
         return points
 
@@ -289,87 +294,52 @@ class Model(src.PINN):
     def solution1(self, ws, x):
 
         #------------------------------------------------------------------------------#
-        #                                       2 
-        #                                   +--------x123  
+        #                                       D 
+        #                                   +--------  
         #                                   |        |
-        # 1. Domain : Iron                D |   1    | 3
+        # 1. Domain : Iron                N |   1    | N
         #                                   |        |
-        #                                   +--------x134    
-        #                                       4/N
+        #                                   +--------    
+        #                                       4
         #------------------------------------------------------------------------------#
         alpha = 2
         
         u = self.neural_networks['u1'].apply(ws['u1'],x) 
 
-        v = ((1 - x[...,1]) * (x[...,0] + 1) * (1 - x[...,0]) )[...,None]
+        v = ((x[...,1] + 1) * (1 - x[...,1]) )[...,None]
         
-        w12 = self.interface12(ws['u12'], x) * ((x[...,0] + 1) * (1 - x[...,0]))[...,None]
+        w14 = self.interface14(ws['u14'], x) 
 
-        w13 = self.interface13(ws['u13'], x) * ((1 - x[...,1]))[...,None]
-
-        w123 =  ws['u123']*( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha 
+        w = w14
         
-        w = w12 + w13 + w123 
-
         output = u*v + w
         return output 
 
 
-    def solution2(self, ws, x):
+    def solution4(self, ws, x):
 
         #------------------------------------------------------------------------------#
-        #                                       3 
-        #                                   +--------x123  
+        #                                       1 
+        #                                   +--------  
         #                                   |        |
-        # 2. Domain : Air                 N |   2    | 1
+        # 4. Domain : Iron2               N |   4    | N
         #                                   |        |
         #                                   +--------+    
-        #                                       D
+        #                                       N
         #------------------------------------------------------------------------------#
         alpha = 2
         
-        u = self.neural_networks['u2'].apply(ws['u2'],x) 
+        u = self.neural_networks['u4'].apply(ws['u4'],x) 
 
-        v = ((x[...,1] + 1) * (1 - x[...,1]) * (1 - x[...,0]) )[...,None]
+        v = ((1 - x[...,1]) )[...,None]
         
-        w23 = self.interface23(ws['u23'], x) * (1 - x[...,0])[...,None]
-
-        w21 = self.interface21(ws['u12'], x) * ((x[...,1] + 1) * (1 - x[...,1]))[...,None]
-
-        w123 =  ws['u123']*( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha 
+        w41 = self.interface41(ws['u14'], x) 
         
-        w = w21 + w23 + w123 
-
-        output = u*v + w
-        return output 
-
-    def solution3(self, ws, x):
-
-        #------------------------------------------------------------------------------#
-        #                                       2 
-        #                                   +--------x123  
-        #                                   |        |
-        # 3. Domain : Current             N |   3    | 1
-        #                                   |        |
-        #                                   +--------x134    
-        #                                       4/N
-        #------------------------------------------------------------------------------#
-        alpha = 2
-        
-        u = self.neural_networks['u3'].apply(ws['u3'],x) 
-
-        v = ((1 - x[...,1]) * (1 - x[...,0]) )[...,None]
-        
-        w31 = self.interface31(ws['u13'], x) * (1 - x[...,1])[...,None]
-        
-        w32 = self.interface32(ws['u23'], x) * (1 - x[...,0])[...,None]
-        
-        w123 =  ws['u123'] * ( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha 
-
-        w = w31 + w32 + w123 
+        w = w41 
 
         output = u*v + w
         return output
+
 
 
 
@@ -383,15 +353,12 @@ class Model(src.PINN):
     
     def loss_pde(self, ws, points):
         grad1 = src.operators.gradient(lambda x : self.solution1(ws,x))(points['ys1'])[...,0,:]
-        grad2 = src.operators.gradient(lambda x : self.solution2(ws,x))(points['ys2'])[...,0,:]
-        grad3 = src.operators.gradient(lambda x : self.solution3(ws,x))(points['ys3'])[...,0,:]
-        
+        grad4 = src.operators.gradient(lambda x : self.solution4(ws,x))(points['ys4'])[...,0,:]
         
         lpde1 = 0.5*1/(self.mu0*self.mur)*jnp.dot(jnp.einsum('mi,mij,mj->m',grad1,points['K1'],grad1), points['ws1']) 
-        lpde2 = 0.5*1/self.mu0*jnp.dot(jnp.einsum('mi,mij,mj->m',grad2,points['K2'],grad2), points['ws2'])  
-        lpde3 = 0.5*1/self.mu0*jnp.dot(jnp.einsum('mi,mij,mj->m',grad3,points['K3'],grad3), points['ws3'])  - jnp.dot(self.J0*self.solution3(ws,points['ys3']).flatten()*points['omega3']  ,points['ws3'])
+        lpde4 = 0.5*1/self.mu0*jnp.dot(jnp.einsum('mi,mij,mj->m',grad4,points['K4'],grad4), points['ws4'])  - jnp.dot(self.J0*self.solution4(ws,points['ys4']).flatten()*points['omega4']  ,points['ws4'])
 
-        return lpde1+lpde2+lpde3
+        return lpde1+lpde4
 
     def loss(self, ws, pts):
         lpde = self.loss_pde(ws, pts)
@@ -405,19 +372,20 @@ w0 = model.init_unravel()
 weights = model.weights 
 
 opt_type = 'ADAM'
-batch_size = 10000
+batch_size = 50000
 opt_init, opt_update, get_params = optimizers.adam(step_size=0.001)
 opt_state = opt_init(weights)
 
 # get initial parameters
 params = get_params(opt_state)
 
-meshfile = './fem_ref/fenicsx_mesh/quad_simple_neum/quad_simple_neum' 
-#path_coor = './fem_ref/fenics_mesh/coordinates_simple.csv'
-evaluate_error(model, params, evaluate_quad_new, [0,1,2], geoms, meshfile)
-exit()
-#print('Success in loading model...')
+meshfile = './fem_ref/fenicsx_mesh/quad_simple_double/quad_simple_double' 
 
+evaluate_error(model, params, evaluate_quad_double_model, [0,1], [geoms[0], geoms[3]], meshfile)
+exit()
+print('Success in loading model...')
+
+points = model.get_points_MC(batch_size, rnd_key)
 
 
 loss_grad = jax.jit(lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(ws, pts)))
@@ -432,7 +400,7 @@ def step(params, opt_state, key):
 step_compiled = jax.jit(step)
 step_compiled(params, opt_state, rnd_key)
 
-n_epochs = 2000 
+n_epochs = 1000 
 
 tme = datetime.datetime.now()
 for k in range(n_epochs):    
@@ -441,5 +409,5 @@ for k in range(n_epochs):
     print('Epoch %d/%d - loss value %e'%(k+1, n_epochs, loss))
 tme = datetime.datetime.now() - tme
 print('Elapsed time ', tme)
-#evaluate_error(model, params, evaluate_quad_nonlin, [0,1,2,3], geoms, meshfile)
-save_models(params, './parameters/quad_simple_neum/')
+evaluate_error(model, params, evaluate_quad_double_model, [0,1], [geoms[0], geoms[3]], meshfile)
+save_models(params, './parameters/quad_simple/')
