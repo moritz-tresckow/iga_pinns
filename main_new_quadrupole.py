@@ -21,9 +21,8 @@ from post_processing import *
 
 # Geometry parametrizations
 geoms = mke_quadrupole_geo(rnd_key)
-air1 = geoms[0]
-air2 = geoms[1]
-iron_pole = geoms[2]
+
+
 
 def interface_function2d(nd, endpositive, endzero, nn):
     # Interface function whether the interface is in x or in y direction
@@ -37,21 +36,6 @@ def interface_function2d(nd, endpositive, endzero, nn):
         fret = lambda ws, x: (nn.apply(ws, x[...,0][...,None]).flatten()*faux(x[...,1]))[...,None]
     return fret
 
-
-def interface_function2d_inv(nd, endpositive, endzero, nn):
-    # Interface function whether the interface is in x or in y direction
-    # Connect the correct basis functions
-    # NN is defined on the boundary so only takes in 1 dimensional inputs
-
-    faux = lambda x: ((x-endzero)**1/(endpositive-endzero)**1)
-    if nd == 0: # NN(y)*(x-endzero)/(endpositive - endzero)ti
-        fret = lambda ws, x: (nn.apply(ws, -1 * x[...,1][...,None]).flatten()*faux(x[...,0]))[...,None]
-    else: # NN(x)*(y-endzero)/(endpositive - endzero)
-        fret = lambda ws, x: (nn.apply(ws, -1 * x[...,0][...,None]).flatten()*faux(x[...,1]))[...,None]
-    return fret
-
-
-
 def jump_function2d(nd, pos_y, nn):
     # Function compactly supported on the patch
     faux = lambda x: jnp.exp(-4.0*jnp.abs(x-pos_y))
@@ -60,7 +44,6 @@ def jump_function2d(nd, pos_y, nn):
     else: # fret(x,y) = NN(x)*exp(-4*|y-y_pos|)
         fret = lambda ws, x: (nn.apply(ws, x[...,0][...,None]).flatten()*faux(x[...,1]))[...,None]
     return fret
-
 
 def ExpHat(x, scale = 0.1):
     # Interface function implementing continuity across patches
@@ -122,19 +105,22 @@ class Model(src.PINN):
 
         ys = jax.random.uniform(key ,(N,2))*2-1
         Weights = jnp.ones((N,))*4/ys.shape[0]
-        
+        # ys = np.array(jax.random.uniform(self.key, (N,2)))*2-1
+        # Weights = jnp.ones((N,))*4/ys.shape[0]
+
+
         points['ys1'] = ys
         points['ws1'] = Weights
-        points['omega1'], points['G1'], points['K1'] = iron_pole.GetMetricTensors(ys)
-
-        points['ys5'] = ys
-        points['ws5'] = Weights
-        points['omega5'], points['G5'], points['K5'] = air1.GetMetricTensors(ys)
-    
-        points['ys6'] = ys
-        points['ws6'] = Weights
-        points['omega6'], points['G6'], points['K6'] = air2.GetMetricTensors(ys)     
-
+        points['omega1'], points['G1'], points['K1'] = geoms[0].GetMetricTensors(ys)
+       
+        points['ys2'] = ys
+        points['ws2'] = Weights
+        points['omega2'], points['G2'], points['K2'] = geoms[1].GetMetricTensors(ys)
+        
+        points['ys3'] = ys
+        points['ws3'] = Weights
+        points['omega3'], points['G3'], points['K3'] = geoms[2].GetMetricTensors(ys)
+       
         return points
 
 
@@ -166,10 +152,10 @@ class Model(src.PINN):
         
         w126 =  ws['u1268']*( (1 - x[...,0]) * (x[...,1] + 1) )[...,None]**alpha 
         
-        w = w12 + w15 + w16 + w156 +  w126
-
-        return u * v + w
-
+        w = w12 + w15 + w16 + w156 + w126
+        
+        output = u*v + w
+        return output 
     
     def solution1(self, ws, x):
         #------------------------------------------------------------------------------#
@@ -197,12 +183,13 @@ class Model(src.PINN):
         
         w = w15 + w16 + w156 
 
-        return u * v + w
+        output = u*v + w
+        return output 
 
 
 
 
-    def solution5(self, ws, x):
+    def solution2(self, ws, x):
         #------------------------------------------------------------------------------#
         #                                       6
         #                                   +--------x156  
@@ -226,7 +213,10 @@ class Model(src.PINN):
         w156 =  ws['u156']*( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha 
         
         w = w51 + w56 + w156 
-        return u * v + w
+        
+
+        output = u*v + w
+        return output 
    
 
 
@@ -263,7 +253,7 @@ class Model(src.PINN):
 
 
 
-    def solution6(self, ws, x):
+    def solution3(self, ws, x):
 
         #------------------------------------------------------------------------------#
         #                                       1 
@@ -287,7 +277,10 @@ class Model(src.PINN):
         w156 =   ws['u156'] * ( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha 
         
         w = w61 + w65 + w156 
-        return u*v+w
+        
+        output = u*v + w
+        return output 
+
 
 
 
@@ -302,22 +295,15 @@ class Model(src.PINN):
         return self.k1*jnp.exp(self.k2*b2)+self.k3
     
     def loss_pde(self, ws, points):
-        # Calculate the spatial gradients grad(u) = (u_x, u_y) with at the quadrature points
         grad1 = src.operators.gradient(lambda x : self.solution1(ws,x))(points['ys1'])[...,0,:]
-        grad5 = src.operators.gradient(lambda x : self.solution5(ws,x))(points['ys5'])[...,0,:]
-        grad6 = src.operators.gradient(lambda x : self.solution6(ws,x))(points['ys6'])[...,0,:]
+        grad2 = src.operators.gradient(lambda x : self.solution2(ws,x))(points['ys2'])[...,0,:]
+        grad3 = src.operators.gradient(lambda x : self.solution3(ws,x))(points['ys3'])[...,0,:]
         
-        #---------------------------------Air + Excitation------------------------------------------------------------------# 
-
+        
         lpde1 = 0.5*1/(self.mu0*self.mur)*jnp.dot(jnp.einsum('mi,mij,mj->m',grad1,points['K1'],grad1), points['ws1']) 
-        lpde5 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad5,points['K5'],grad5), points['ws5'])  
-        lpde6 = 0.5 * 1/self.mu0 * jnp.dot(jnp.einsum('mi,mij,mj->m',grad6,points['K6'],grad6), points['ws6']) - jnp.dot(self.J0*self.solution6(ws,points['ys6']).flatten()*points['omega6']  ,points['ws6'])
-
-        #-------------------------------------------------------------------------------------------------------------------#
-
-        # Sum up losses from the individual subdomains
-        lpde  = lpde1+lpde5+lpde6
-        return lpde #+ lpde_iron     
+        lpde2 = 0.5*1/self.mu0*jnp.dot(jnp.einsum('mi,mij,mj->m',grad2,points['K2'],grad2), points['ws2'])  
+        lpde3 = 0.5*1/self.mu0*jnp.dot(jnp.einsum('mi,mij,mj->m',grad3,points['K3'],grad3), points['ws3'])  - jnp.dot(self.J0*self.solution3(ws,points['ys3']).flatten()*points['omega3']  ,points['ws3'])
+        return lpde1+lpde2+lpde3
 
 
     def loss(self, ws, pts):
@@ -332,16 +318,18 @@ weights = model.weights                 # Retrieve weights to initialize the opt
 
 #------------------------------Optimization parameters ------------------------------------#
 opt_type = 'ADAM'                                                         # Optimizer name
-batch_size = 12000                                                          # Number of sample points for quadrature (MC integration) 
-stepsize = 0.0005                                                           # Stepsize for Optimizer aka. learning rate
-n_epochs = 1000                                                             # Number of optimization epochs
+batch_size = 10000                                                          # Number of sample points for quadrature (MC integration) 
+stepsize = 0.0001                                                           # Stepsize for Optimizer aka. learning rate
+n_epochs = 200                                                             # Number of optimization epochs
 path_coor = './fem_ref/coordinates.csv'                                     # Path to coordinates to evaluate the NN solution
 path_refs = './parameters/quad/mu_2k/ref_values.csv'                        # FEM reference solution
+# meshfile = './fem_ref/fenicsx_mesh/quad_simple/quad_simple' 
+meshfile = './fem_ref/fenicsx_mesh/quad_new/quad_new' 
 
 opt_init, opt_update, get_params = optimizers.adam(step_size=stepsize)    # Instantiate the optimizer
 opt_state = opt_init(weights)                                               # Initialize the optimizer with the NN weights
 params = get_params(opt_state)                                              # Retrieve the trainable weights for the optimizer as a dict
-verbose =True 
+verbose =False 
 if verbose == True:
 
     ys = np.linspace(-1,1,100)
@@ -383,14 +371,30 @@ if verbose == True:
 
 
 
+
 #evaluate_error(model, params, evaluate_air,[4,5,6,7], path_coor, path_refs)        # Evaluate the model error before training
 loss_grad = jax.jit(lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(ws, pts))) # JIT compile the loss function before training
 
 key = jax.random.PRNGKey(np.random.randint(70998373))                     # Generate an PRND key to initialize the MC sampling routine
 points = model.get_points_MC(batch_size, key)                               # Generate the MC samples
+
+#input_pts = [points['ys1'], points['ys5'], points['ys6']]
+#pts = [i.__call__(j) for i,j in zip(geoms, input_pts)]
+#print(pts[0].shape, pts[1].shape, pts[2].shape)
+#[plt.scatter(i[:,0], i[:,1]) for i in pts]
+#plt.savefig('scatterplot_new.png')
+#print('Start evaluating models...')
+#print('Input Shape 1 ', points['ys1'].shape)
+#print('Input Shape 5 ', points['ys5'].shape)
+#print('Input Shape 6 ', points['ys6'].shape)
+
+#model.solution1(params, points['ys1'])
+#model.solution5(params, points['ys5'])
+#model.solution6(params, points['ys6'])
+
+
 model.loss_pde(params, points)
-geoms = [iron_pole, air1, air2]
-evaluate_error(model, params, evaluate_quad_new,[0,1,2], geoms, path_refs)
+evaluate_error(model, params, evaluate_quad_new,[0,1,2], geoms, meshfile)
 
 def step(params, opt_state, key):
     points = model.get_points_MC(batch_size, key)
@@ -419,5 +423,4 @@ save_models(params, './parameters/quad/')
 print('Erfolgreich gespeichert!!')
 
 
-
-evaluate_error(model, params, evaluate_quad_new, [0,1,2], geoms, path_refs)
+evaluate_error(model, params, evaluate_quad_new, [0,1,2], geoms, meshfile)

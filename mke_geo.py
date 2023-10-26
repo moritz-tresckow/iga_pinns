@@ -269,7 +269,7 @@ def mke_quadrupole_geo(key):
     air1 = mke_air1()
     air2 = mke_air2()
     iron_pole = mke_iron_pole()
-    return [air1, air2, iron_pole]
+    return [iron_pole, air1, air2]
 
 #create_geometry(rnd_key)
 #geoms = mke_quadrupole_geo(rnd_key)

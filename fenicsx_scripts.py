@@ -76,14 +76,15 @@ def calc_eq(meshfile, mu, js, coordinates = 0):
     vertices = V.tabulate_dof_coordinates() 
     #vertices = vertices[:,0:2]
 
-    #boundary_markers = [5,6] # 17: homogeneous DBc, 16: inhomogeneous DBc
-    boundary_markers = [16] # 17: homogeneous DBc, 16: inhomogeneous DBc
+    boundary_markers = [5,6] # 17: homogeneous DBc, 16: inhomogeneous DBc
+    #boundary_markers = [16] # 17: homogeneous DBc, 16: inhomogeneous DBc
     dirichlet_vals = [0]	
     material_markers = [1,2,3] # 15: outer space, 14: conductive area 
     mu0 = mu[0]
     mur = mu[1] 
     #material_vals = [1/mu0, 0, 1/mu0]	
-    material_vals = [1/(mu0*mur), 1/mu0, 1/mu0]	
+    #material_vals = [1/(mu0*mur), 1/mu0, 1/mu0]	
+    material_vals = [1/mu0, 1/(mu0*mur), 1/mu0]	
 
     def locate_dofs(idx):
         dirichlet_facets = ct_l.find(idx)
@@ -126,20 +127,6 @@ def calc_eq(meshfile, mu, js, coordinates = 0):
     b = dolfinx.fem.form(b) 
     rhs = dolfinx.fem.petsc.create_vector(b)
     
-    #F = ufl.dot(nu*curl2D(uh), curl2D(v))*dx(1) + ufl.dot(nu_Bauer(curl2D(uh))*curl2D(uh), curl2D(v))*dx(2) + ufl.dot(nu*curl2D(uh), curl2D(v))*dx(3) - j_source*v*dx 
-    #F = ufl.dot(nu*curl2D(u), curl2D(v))*dx(1) + ufl.dot((1/(mu0*mur))*curl2D(u), curl2D(v))*dx(2) + ufl.dot(nu*curl2D(u), curl2D(v))*dx(3) - j_source*v*dx 
-
-    #F = ufl.dot(nu_Bauer(curl2D(uh))*ufl.grad(uh), ufl.grad(v))*ufl.dx - v*ufl.dx 
-    #problem = dolfinx.fem.petsc.NonlinearProblem(F, uh, bcs)
-    #solver = dolfinx.nls.petsc.NewtonSolver(MPI.COMM_WORLD, problem)
-    #solver.report = True
-    #dolfinx.log.set_log_level(dolfinx.log.LogLevel.INFO)
-    #n, converged = solver.solve(uh)
-    #assert(converged)
-    #print(f"Number of iterations: {n:d}")
-    #print(uh.x.array[:])
-    #exit()
-
     solver = PETSc.KSP().create(msh.comm)
     solver.setOperators(lhs)
     solver.setType(PETSc.KSP.Type.PREONLY)

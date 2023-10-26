@@ -71,12 +71,12 @@ def evaluate_quad_new(model, params, ys, x):
     model.weights = params
     weights = params 
     u1 = model.solution1(weights, ys).reshape(x.shape)
-    u5 = model.solution5(weights, ys).reshape(x.shape)
-    u6 = model.solution6(weights, ys).reshape(x.shape)
+    u2 = model.solution2(weights, ys).reshape(x.shape)
+    u3 = model.solution3(weights, ys).reshape(x.shape)
 
-    vmin = min([u1.min(),u5.min(),u6.min()]) 
-    vmax = max([u1.max(),u5.max(),u6.max()])
-    return [u1, u5, u6], vmin, vmax
+    vmin = min([u1.min(),u2.min(),u3.min()]) 
+    vmax = max([u1.max(),u2.max(),u3.max()])
+    return [u1, u2, u3], vmin, vmax
 
 def cal_L2_error(ref_val, cal_val, msh):
     difference = (cal_val - ref_val)**2
@@ -98,13 +98,9 @@ def cal_coordinates(geoms):
 
 
 
-def evaluate_error(model, params, evaluation_func, model_idxs, geoms):
+def evaluate_error(model, params, evaluation_func, model_idxs, geoms, meshfile):
     coordinates = cal_coordinates(geoms)
-    #coordinates = np.loadtxt(path_coor, delimiter = ',')
-    meshfile = './fem_ref/fenicsx_mesh/quad_simple/quad_simple' 
-    # meshfile = './fem_ref/fenicsx_mesh/quad_new/quad_new' 
     ref_values = calc_eq(meshfile, [model.mu0, model.mur], model.J0, coordinates)
-    #ref_values2 = np.loadtxt(path_vals, delimiter = ',')
 
     x,y = np.meshgrid(np.linspace(-1,1,100),np.linspace(-1,1,100))
     ys = np.concatenate((x.flatten()[:,None],y.flatten()[:,None]),1)
