@@ -251,8 +251,7 @@ class Model(src.PINN):
 
         # self.mu0 = 0.001
         self.mu0 = 1
-        # self.mur = 2000
-        self.mur = 1 
+        self.mur = 2000
         # self.J0 =  1000000
         self.J0 =  1000
 
@@ -373,7 +372,7 @@ weights = model.weights
 
 opt_type = 'ADAM'
 batch_size = 50000
-opt_init, opt_update, get_params = optimizers.adam(step_size=0.001)
+opt_init, opt_update, get_params = optimizers.adam(step_size=0.00001)
 opt_state = opt_init(weights)
 
 # get initial parameters
@@ -382,7 +381,6 @@ params = get_params(opt_state)
 meshfile = './fem_ref/fenicsx_mesh/quad_simple_double/quad_simple_double' 
 
 evaluate_error(model, params, evaluate_quad_double_model, [0,1], [geoms[0], geoms[3]], meshfile)
-exit()
 print('Success in loading model...')
 
 points = model.get_points_MC(batch_size, rnd_key)

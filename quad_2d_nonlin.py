@@ -61,7 +61,6 @@ def create_geometry(key, scale = 1):
     weights[1,-1] = np.sin((np.pi-alpha)/2)
     print(knots)
     print(weights)
-    exit()
     basis1 = src.bspline.BSplineBasisJAX(np.array([-1,1]),2)
     basis2 = src.bspline.BSplineBasisJAX(np.array([-1,-0.33,0.33,1]),1)
 

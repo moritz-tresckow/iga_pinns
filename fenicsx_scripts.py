@@ -134,13 +134,13 @@ def calc_eq(meshfile, mu, js, coordinates = 0):
 
     def eval_on_coordinates(uh, domain, boundary, coordinates):
         bb_tree = dolfinx.geometry.BoundingBoxTree(domain, domain.topology.dim)
-        bb_tree_bnd = dolfinx.geometry.BoundingBoxTree(boundary, boundary.topology.dim)
-        print(domain.topology.dim, boundary.topology.dim)
-        exit()
         coordinates = np.concatenate((coordinates, np.zeros((coordinates.shape[0], 1))), axis = 1)
         cell_candidates = dolfinx.geometry.compute_collisions(bb_tree, coordinates) 
-        boundary_candidates = dolfinx.geometry.compute_collisions(bb_tree_bnd, coordinates) 
         colliding_cells = dolfinx.geometry.compute_colliding_cells(domain, cell_candidates, coordinates)
+
+        num_entities_local = domain.topology.index_map(2).size_local + domain.topology.index_map(2).num_ghosts
+        entities = np.arange(num_entities_local, dtype = np.int32)
+        mid_tree = dolfinx.geometry.create_midpoint_tree(domain, 2, entities)
         cells = []
         for i, point in enumerate(coordinates):
             try:
@@ -149,13 +149,14 @@ def calc_eq(meshfile, mu, js, coordinates = 0):
                 else:
                     cells.append(cell_candidates.links(i)[0])
             except:
-                print(i, 'Substituting value')
-                cells.append(0)
+                print(i, 'Substituting value with clossest colliding entity')
+                ent = dolfinx.geometry.compute_closest_entity(bb_tree, mid_tree, domain, point)
+
+                cells.append(ent[0])
         sol = uh.eval(coordinates, cells)
         return sol
     sol = eval_on_coordinates(uh, msh, msh_l, coordinates)
     print('succ.')
-    exit()
 
     return sol 
 

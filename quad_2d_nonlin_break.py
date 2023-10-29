@@ -420,8 +420,6 @@ class Model(src.PINN):
 
 
 
-
-
     def nu_model(self, grad_a):
         b2 = grad_a[...,0]**2+grad_a[...,1]**2
         return self.k1*jnp.exp(self.k2*b2)+self.k3

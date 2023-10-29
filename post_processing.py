@@ -59,10 +59,11 @@ def evaluate_air(model, params, ys, x):
 def evaluate_single_model(model, params, ys, x):
     model.weights = params
     weights = params 
-    u3 = model.solution3(weights, ys).reshape(x.shape)
-    vmin = u3.min() 
-    vmax = u3.max() 
-    return [u3], vmin, vmax
+    u1 = model.solution1(weights, ys).reshape(x.shape)
+    u2 = model.solution2(weights, ys).reshape(x.shape)
+    vmin = min([u1.min(),u2.min()]) 
+    vmax = max([u1.max(),u2.max()])
+    return [u1, u2], vmin, vmax
 
 def evaluate_double_model(model, params, ys, x):
     model.weights = params
@@ -144,7 +145,7 @@ def evaluate_error(model, params, evaluation_func, model_idxs, geoms, meshfile):
     #print('The min and max of the reference is: ', vmin, vmax)
 
     vmin = 0
-    vmax = 0.1 
+    vmax = 0.3 
     error = [] 
     plt.figure()
     norm = mpl.colors.Normalize(vmin = vmin, vmax = vmax)
@@ -167,7 +168,7 @@ def evaluate_error(model, params, evaluation_func, model_idxs, geoms, meshfile):
         relative_error_domain = np.sum(error_local)/np.sum(np.abs(uu))
         print('The relative error in domain ', i + 1, ' is ', relative_error_domain*100, ' %')
         #plt.contourf(xx, yy, sol_model[i], norm = norm, levels = 100)
-        plt.contourf(xx, yy, error_local, norm = norm, levels = 1000)
+        plt.contourf(xx, yy, error_local, norm = norm, levels = 100)
         #plt.contourf(xx, yy, uu, norm = norm, levels = 100)
     plt.colorbar(m)
     # plt.show()
