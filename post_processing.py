@@ -33,6 +33,33 @@ def evaluate_models(model, params, ys, x):
     vmax = max([u1.max(),u2.max(),u3.max(),u4.max(),u5.max(),u6.max(),u7.max(),u8.max()])
     return [u1, u2, u3, u4, u5, u6, u7, u8], vmin, vmax
 
+def evaluate_models5(model, params, ys, x):
+    model.weights = params
+    weights = params 
+    u1 = model.solution1(weights, ys).reshape(x.shape)
+    u2 = model.solution2(weights, ys).reshape(x.shape)
+    u3 = model.solution3(weights, ys).reshape(x.shape)
+    u4 = model.solution4(weights, ys).reshape(x.shape)
+    u5 = model.solution5(weights, ys).reshape(x.shape)
+
+    vmin = min([u1.min(),u2.min(),u3.min(),u4.min(),u5.min()]) 
+    vmax = max([u1.max(),u2.max(),u3.max(),u4.max(),u5.max()])
+    return [u1, u2, u3, u4, u5], vmin, vmax
+
+def evaluate_models7(model, params, ys, x):
+    model.weights = params
+    weights = params 
+    u1 = model.solution1(weights, ys).reshape(x.shape)
+    u2 = model.solution2(weights, ys).reshape(x.shape)
+    u3 = model.solution3(weights, ys).reshape(x.shape)
+    u4 = model.solution4(weights, ys).reshape(x.shape)
+    u5 = model.solution5(weights, ys).reshape(x.shape)
+    u6 = model.solution6(weights, ys).reshape(x.shape)
+    u7 = model.solution7(weights, ys).reshape(x.shape)
+
+    vmin = min([u1.min(),u2.min(),u3.min(),u4.min(),u5.min(),u6.min(),u7.min()]) 
+    vmax = max([u1.max(),u2.max(),u3.max(),u4.max(),u5.max(),u6.max(),u7.max()])
+    return [u1, u2, u3, u4, u5, u6, u7], vmin, vmax
 
 def evaluate_air(model, params, ys, x):
     model.weights = params
@@ -141,12 +168,12 @@ def evaluate_error(model, params, evaluation_func, model_idxs, geoms, meshfile):
     sol_model, vmin, vmax = evaluation_func(model, params, ys, x)
     print('The min and max of the NN models is: ', vmin, vmax)
 
-    vmin = np.amin(ref_values)
-    vmax = np.amax(ref_values)
+    #vmin = np.amin(ref_values)
+    #vmax = np.amax(ref_values)
     #print('The min and max of the reference is: ', vmin, vmax)
 
-    vmin = 0
-    vmax = 0.1 
+    #vmin = 0
+    #vmax = 0.1 
     error = [] 
     plt.figure()
     norm = mpl.colors.Normalize(vmin = vmin, vmax = vmax)
@@ -168,8 +195,8 @@ def evaluate_error(model, params, evaluation_func, model_idxs, geoms, meshfile):
         error.append(np.sum(error_local))
         relative_error_domain = np.sum(error_local)/np.sum(np.abs(uu))
         print('The relative error in domain ', i + 1, ' is ', relative_error_domain*100, ' %')
-        #plt.contourf(xx, yy, sol_model[i], norm = norm, levels = 100)
-        plt.contourf(xx, yy, error_local, norm = norm, levels = 100)
+        plt.contourf(xx, yy, sol_model[i], norm = norm, levels = 100)
+        #plt.contourf(xx, yy, error_local, norm = norm, levels = 100)
         #plt.contourf(xx, yy, uu, norm = norm, levels = 100)
     plt.colorbar(m)
     # plt.show()
