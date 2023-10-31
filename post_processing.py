@@ -65,14 +65,15 @@ def evaluate_single_model(model, params, ys, x):
     vmax = max([u1.max(),u2.max()])
     return [u1, u2], vmin, vmax
 
-def evaluate_double_model(model, params, ys, x):
+def evaluate_triple_model(model, params, ys, x):
     model.weights = params
     weights = params 
     u1 = model.solution1(weights, ys).reshape(x.shape)
+    u2 = model.solution2(weights, ys).reshape(x.shape)
     u3 = model.solution3(weights, ys).reshape(x.shape)
-    vmin = min([u1.min(),u3.min()]) 
-    vmax = max([u1.max(),u3.max()])
-    return [u1, u3], vmin, vmax
+    vmin = min([u1.min(),u2.min(), u3.min()]) 
+    vmax = max([u1.max(),u2.max(), u3.max()])
+    return [u1, u2, u3], vmin, vmax
 
 
 
@@ -140,12 +141,12 @@ def evaluate_error(model, params, evaluation_func, model_idxs, geoms, meshfile):
     sol_model, vmin, vmax = evaluation_func(model, params, ys, x)
     print('The min and max of the NN models is: ', vmin, vmax)
 
-    #vmin = np.amin(ref_values)
-    #vmax = np.amax(ref_values)
+    vmin = np.amin(ref_values)
+    vmax = np.amax(ref_values)
     #print('The min and max of the reference is: ', vmin, vmax)
 
     vmin = 0
-    vmax = 0.3 
+    vmax = 0.1 
     error = [] 
     plt.figure()
     norm = mpl.colors.Normalize(vmin = vmin, vmax = vmax)
@@ -172,7 +173,7 @@ def evaluate_error(model, params, evaluation_func, model_idxs, geoms, meshfile):
         #plt.contourf(xx, yy, uu, norm = norm, levels = 100)
     plt.colorbar(m)
     # plt.show()
-    plt.savefig('./complete_fig2.png')
+    plt.savefig('./complete_fig.png')
     error_tot = np.sum(error)
     relative = error_tot/np.sum(np.abs(ref_values))
     print('The relative error amounts to ', relative*100, ' %')

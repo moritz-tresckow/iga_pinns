@@ -206,6 +206,7 @@ def create_geometry_alt(key, scale = 1):
     C = np.linalg.solve(A,b)
     
     knots = np.array([ [ [0,0] , [Dc/2,0] , [Dc,0] ] , [ [ri/np.sqrt(2),ri/np.sqrt(2)] , [C[0,0],C[1,0]] , [Dc,hc] ]])
+    print(knots)
     knots_geom3 = knots
 
     basis1 = src.bspline.BSplineBasisJAX(np.linspace(-1,1,2),1)
@@ -216,9 +217,16 @@ def create_geometry_alt(key, scale = 1):
     geom3 = src.geometry.PatchNURBSParam([basis1, basis2], knots, weights, 0, 2, key)
     
     # knots_upper = [[Dc,0] ,[Di,0] ]
-    knots_upper = [[Di,0] ,[Dc,0] ]
+    #knots_upper = [[Di,0] ,[Dc,0] ]
     # knots_lower = [[Dc,hc], [Di,hi+bli]]
-    knots_lower = [[Di,hi+bli], [Dc,hc]]
+    #knots_lower = [[Di,hi+bli], [Dc,hc]]
+  
+    b2 = 0.05
+    hx = 0.009312
+    hy = 0.003294  
+
+    knots_upper = [[b2 + 2*hx,0] ,[Dc,0] ]
+    knots_lower = [[b2 + 2*hx, b2 - 2*hy], [Dc,hc]]
     knots2 = np.array([knots_upper , knots_lower ]) 
     #knots2 = knots2[:,::-1,:]
 
@@ -231,7 +239,19 @@ def create_geometry_alt(key, scale = 1):
 
     geom2 = src.geometry.PatchNURBSParam([basis1, basis2], knots2, weights, 0, 2, key)
 
-    return  [geom3, geom2] ,[knots_geom3, knots_geom2] 
+
+
+    knots_lower = np.array([ [ri/np.sqrt(2),ri/np.sqrt(2)] , [C[0,0],C[1,0]] , [Dc,hc] ])
+    knots_upper = np.array([ [b2, b2], [b2 + hx, b2 - hy] , [b2 + 2*hx, b2 - 2*hy] ])
+    knots_geom1 = np.array([knots_upper , knots_lower ]) 
+    
+    basisx = src.bspline.BSplineBasisJAX(np.linspace(-1,1,2),1)
+    basisy = src.bspline.BSplineBasisJAX(np.array([-1,1]),2)
+    
+    weights = np.ones(knots.shape[:2])
+    weights[1,1] = np.sin((np.pi-alpha)/2)
+    geom1 = src.geometry.PatchNURBSParam([basisx, basisy], knots_geom1, weights, 0, 2, key)
+    return  [geom3, geom2, geom1] ,[knots_geom3, knots_geom2, knots_geom1] 
 
 
 
@@ -262,6 +282,7 @@ l = 1
 [plt.scatter(geoms[l].__call__(i)[:,0], geoms[l].__call__(i)[:,1], c = j, s=1) for i,j in zip(bnd_samples, cs)]
 [plt.scatter(i[:,0], i[:,1], c = 'r') for i in knots_pts]
 plt.savefig('double_domain_mvt.png')
+exit()
 def interface_function2d(nd, endpositive, endzero, nn):
     faux = lambda x: ((x-endzero)**1/(endpositive-endzero)**1)
     if nd == 0: # NN(y)*(x-endzero)/(endpositive - endzero)
