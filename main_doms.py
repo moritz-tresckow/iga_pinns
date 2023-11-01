@@ -229,7 +229,7 @@ def create_geo_III(key):
 
 def mke_geo(rnd_key):  
     geoms, knots = create_geometry_alt(rnd_key)
-    meshfile = './fem_ref/fenicsx_mesh/quad_dom1_7/quad_dom1_7' 
+    meshfile = './fem_ref/fenicsx_mesh/quad_doms/quad_doms' 
     return geoms, knots, meshfile
 
 geoms, knots, meshfile = mke_geo(rnd_key)
@@ -238,18 +238,18 @@ geom8, knots8 = create_geo_III(rnd_key)
 geoms = geoms + geom4 + geom8
 knots = knots + knots4 + knots8
 
-bnd_samples = sample_bnd(1000)
+#bnd_samples = sample_bnd(1000)
 
-pts = [i.importance_sampling(1000)[0] for i in geoms]
-[plt.scatter(i[:,0], i[:,1], s=1) for i in pts]
-knots_pts = [np.reshape(i, (i.shape[0]*i.shape[1],i.shape[2])) for i in knots]
+#pts = [i.importance_sampling(1000)[0] for i in geoms]
+#[plt.scatter(i[:,0], i[:,1], s=1) for i in pts]
+#knots_pts = [np.reshape(i, (i.shape[0]*i.shape[1],i.shape[2])) for i in knots]
 
-cs = ['r', 'b', 'k', 'y']
-l = 7
-[plt.scatter(geoms[l].__call__(i)[:,0], geoms[l].__call__(i)[:,1], c = j, s=5) for i,j in zip(bnd_samples, cs)]
-[plt.scatter(i[:,0], i[:,1], c = 'r') for i in knots_pts]
-plt.savefig('doms.png')
-exit()
+#cs = ['r', 'b', 'k', 'y']
+#l = 7
+#[plt.scatter(geoms[l].__call__(i)[:,0], geoms[l].__call__(i)[:,1], c = j, s=5) for i,j in zip(bnd_samples, cs)]
+#[plt.scatter(i[:,0], i[:,1], c = 'r') for i in knots_pts]
+#plt.savefig('doms.png')
+
 def interface_function2d(nd, endpositive, endzero, nn):
     faux = lambda x: ((x-endzero)**1/(endpositive-endzero)**1)
     if nd == 0: # NN(y)*(x-endzero)/(endpositive - endzero)
@@ -276,7 +276,7 @@ class Model(src.PINN):
         nl = 16 
         nl_bndr = 8 
         load = True 
-        load_p = True
+        load_p =True 
         path = './parameters/quad/'
 
         feat_domain = [2, nl, nl, nl, 1] 
@@ -291,6 +291,8 @@ class Model(src.PINN):
         self.add_flax_network('u5', feat_domain, act_domain, load, path)
         self.add_flax_network('u6', feat_domain, act_domain, load, path)
         self.add_flax_network('u7', feat_domain, act_domain, load, path)
+        self.add_flax_network('u8', feat_domain, act_domain, load, path)
+        self.add_flax_network('u9', feat_domain, act_domain, load, path)
 
         self.add_flax_network('u12', feat_bndr, act_bndr, load, path)
         self.add_flax_network('u13', feat_bndr, act_bndr, load, path)
@@ -298,9 +300,14 @@ class Model(src.PINN):
         self.add_flax_network('u34', feat_bndr, act_bndr, load, path)
         self.add_flax_network('u27', feat_bndr, act_bndr, load, path)
         self.add_flax_network('u45', feat_bndr, act_bndr, load, path)
+        self.add_flax_network('u48', feat_bndr, act_bndr, load, path)
+        self.add_flax_network('u58', feat_bndr, act_bndr, load, path)
         self.add_flax_network('u57', feat_bndr, act_bndr, load, path)
         self.add_flax_network('u56', feat_bndr, act_bndr, load, path)
         self.add_flax_network('u67', feat_bndr, act_bndr, load, path)
+        self.add_flax_network('u69', feat_bndr, act_bndr, load, path)
+        self.add_flax_network('u89', feat_bndr, act_bndr, load, path)
+
 
         self.interface12 = interface_function2d(1,1.0,-1.0,self.neural_networks['u12'])
         self.interface21 = interface_function2d(1,1.0,-1.0,self.neural_networks['u12'])
@@ -320,17 +327,31 @@ class Model(src.PINN):
         self.interface45 = interface_function2d(0,1.0,-1.0,self.neural_networks['u45'])
         self.interface54 = interface_function2d(0,1.0,-1.0,self.neural_networks['u45'])
         
+        self.interface48 = interface_function2d(1,-1.0,1.0,self.neural_networks['u48']) 
+        self.interface84 = interface_function2d(0,1.0,-1.0,self.neural_networks['u48'])
+        
         self.interface56 = interface_function2d(0,-1.0,1.0,self.neural_networks['u56'])
         self.interface65 = interface_function2d(0,-1.0,1.0,self.neural_networks['u56'])
 
         self.interface57 = interface_function2d(1,1.0,-1.0,self.neural_networks['u57'])
         self.interface75 = interface_function2d(1,1.0,-1.0,self.neural_networks['u57'])
 
+        self.interface58 = interface_function2d(1,-1.0,1.0,self.neural_networks['u58'])
+        self.interface85 = interface_function2d(1,-1.0,1.0,self.neural_networks['u58'])
+
         self.interface67 = interface_function2d_inv(1,1.0,-1.0,self.neural_networks['u67'])
         self.interface76 = interface_function2d(0,-1.0,1.0,self.neural_networks['u67'])
         
+        self.interface69 = interface_function2d_inv(1,-1.0,1.0,self.neural_networks['u69'])
+        self.interface96 = interface_function2d(1,1.0,-1.0,self.neural_networks['u69'])
+        
+        self.interface89 = interface_function2d(0,-1.0,1.0,self.neural_networks['u89'])
+        self.interface98 = interface_function2d(0,1.0,-1.0,self.neural_networks['u89'])
+
         self.add_trainable_parameter('u123',(1,), load_p, path) 
+        self.add_trainable_parameter('u458',(1,), load_p, path) 
         self.add_trainable_parameter('u567',(1,), load_p, path) 
+        self.add_trainable_parameter('u5689',(1,), load_p, path) 
         self.add_trainable_parameter('u23457',(1,), load_p, path) 
         
         self.mu0 = 1
@@ -371,6 +392,14 @@ class Model(src.PINN):
         points['ys7'] = ys
         points['ws7'] = Weights
         points['omega7'], points['G7'], points['K7'] = geoms[6].GetMetricTensors(ys)
+
+        points['ys8'] = ys
+        points['ws8'] = Weights
+        points['omega8'], points['G8'], points['K8'] = geoms[7].GetMetricTensors(ys)
+
+        points['ys9'] = ys
+        points['ws9'] = Weights
+        points['omega9'], points['G9'], points['K9'] = geoms[8].GetMetricTensors(ys)
         return points
 
 
@@ -470,22 +499,24 @@ class Model(src.PINN):
         #                                   |        |
         # 4. Domain : Iron Yoke           D |   4    | 5
         #                                   |        |
-        #                                    --------    
-        #                                       N
+        #                                    --------x458   
+        #                                       8
         #------------------------------------------------------------------------------#
         alpha = 2 
         
         u = self.neural_networks['u4'].apply(ws['u4'],x) 
 
-        v = ((1 - x[...,1]) * (1 - x[...,0]) * (x[...,0] + 1))[...,None]
+        v = ((1 - x[...,1]) * (x[...,1] + 1) * (1 - x[...,0]) * (x[...,0] + 1))[...,None]
         
-        w43 = self.interface43(ws['u34'], x) * ((1 - x[...,0]) *  (x[...,0] + 1))[...,None]
-        w45 = self.interface45(ws['u45'], x) *  (1 - x[...,1]) [...,None]
+        w43 = self.interface43(ws['u34'], x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
+        w45 = self.interface45(ws['u45'], x) * ((1 - x[...,1]) * (x[...,1] + 1)) [...,None]
+        w48 = self.interface48(ws['u48'], x) * ((1 - x[...,0]) * (x[...,0] + 1)) [...,None]
         
         w23457  = ws['u23457'] *( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha
+        w458  = ws['u458'] *( (x[...,0] + 1) * (1 - x[...,1]) )[...,None]**alpha
         
-        w = w43 + w45
-        w = w + w23457
+        w = w43 + w45 + w48
+        w = w + w23457 + w458
 
         output = u*v + w
         return output 
@@ -497,24 +528,27 @@ class Model(src.PINN):
         #                                   |        |
         # 5. Domain : Air 3               6 |   5    | 4
         #                                   |        |
-        #                                    --------    
-        #                                       N
+        #                              5689x --------x458    
+        #                                       8 
         #------------------------------------------------------------------------------#
         alpha = 2 
         
         u = self.neural_networks['u5'].apply(ws['u5'],x) 
 
-        v = ((x[...,0] + 1) * (1 - x[...,0]) * (1 - x[...,1]))[...,None]
+        v = ((1 - x[...,1]) * (x[...,1] + 1) * (1 - x[...,0]) * (x[...,0] + 1))[...,None]
         
         w57 = self.interface57(ws['u57'], x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
-        w54 = self.interface54(ws['u45'], x) *  (1 - x[...,1]) [...,None]
-        w56 = self.interface56(ws['u56'], x) *  (1 - x[...,1]) [...,None]
+        w54 = self.interface54(ws['u45'], x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
+        w56 = self.interface56(ws['u56'], x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]        
+        w58 = self.interface58(ws['u58'], x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]        
+
+        w23457  = ws['u23457'] * ( ( x[...,0] + 1 ) * ( x[...,1] + 1 ) )[...,None]**alpha
+        w5689   = ws['u5689']  * ( ( 1 - x[...,0] ) * ( 1 - x[...,1] ) )[...,None]**alpha
+        w567    = ws['u567']   * ( ( 1 - x[...,0] ) * ( x[...,1] + 1 ) )[...,None]**alpha
+        w458    = ws['u458']   * ( ( x[...,0] + 1 ) * ( 1 - x[...,1] ) )[...,None]**alpha
         
-        w23457  = ws['u23457'] *( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha
-        w567  = ws['u567']      *( (1 - x[...,0]) * (x[...,1] + 1) )[...,None]**alpha
-        
-        w = w56 + w54 + w57
-        w = w + w23457 + w567
+        w = w56 + w54 + w57 + w58
+        w = w + w23457 + w567 + w458 + w5689
 
         output = u*v + w
         return output 
@@ -526,22 +560,24 @@ class Model(src.PINN):
         #                                   |        |
         # 6. Domain : Air 3               5 |   6    | N
         #                                   |        |
-        #                                    --------    
-        #                                       N
+        #                               5689x--------    
+        #                                       9
         #------------------------------------------------------------------------------#
         alpha = 2 
         
         u = self.neural_networks['u6'].apply(ws['u6'],x) 
 
-        v = ((1 - x[...,1]) * (x[...,0] + 1))[...,None]
+        v = ((x[...,1] + 1) * (1 - x[...,1]) * (x[...,0] + 1))[...,None]
         
-        w65 = self.interface65(ws['u56'], x) *  (1 - x[...,1])[...,None]
+        w65 = self.interface65(ws['u56'], x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
         w67 = self.interface67(ws['u67'], x) *  (x[...,0] + 1) [...,None]
+        w69 = self.interface69(ws['u69'], x) *  (x[...,0] + 1) [...,None]
         
         w567  = ws['u567'] *( (1 - x[...,0]) * (x[...,1] + 1) )[...,None]**alpha
-        
-        w = w65 + w67
-        w = w + w567
+        w5689   = ws['u5689']  * ( ( 1 - x[...,0] ) * ( 1 - x[...,1] ) )[...,None]**alpha
+
+        w = w65 + w67 + w69
+        w = w + w567 + w5689
 
         output = u*v + w
         return output 
@@ -588,19 +624,20 @@ class Model(src.PINN):
         #------------------------------------------------------------------------------#
         alpha = 2 
         
-        u = self.neural_networks['u7'].apply(ws['u7'],x) 
+        u = self.neural_networks['u8'].apply(ws['u8'],x) 
 
-        v = ((x[...,0] + 1) * (1 - x[...,0]) * (1 - x[...,1]))[...,None]
+        v = ((1 - x[...,1]) * (x[...,1] + 1) * (1 - x[...,0]) * (x[...,0] + 1))[...,None]
         
-        w72 = self.interface72(ws['u27'], x) * ((1 - x[...,1]))[...,None]
-        w75 = self.interface75(ws['u57'], x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
-        w76 = self.interface76(ws['u67'], x) *  (1 - x[...,1]) [...,None]
+        w84 = self.interface84(ws['u48'], x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]        
+        w85 = self.interface85(ws['u58'], x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
+        w89 = self.interface89(ws['u89'], x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
+
         
-        w23457  = ws['u23457'] *( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha
-        w567   = ws['u567']    *( (1 - x[...,0]) * (x[...,1] + 1) )[...,None]**alpha
-        
-        w = w72 + w75 + w76 
-        w = w + w23457 + w567
+        w5689   = ws['u5689']  * ( ( 1 - x[...,0] ) * ( 1 - x[...,1] ) )[...,None]**alpha
+        w458    = ws['u458']   * ( ( x[...,0] + 1 ) * ( 1 - x[...,1] ) )[...,None]**alpha
+
+        w = w84 + w85 + w89 
+        w = w + w5689 + w458
 
         output = u*v + w
         return output 
@@ -617,22 +654,24 @@ class Model(src.PINN):
         #------------------------------------------------------------------------------#
         alpha = 2 
         
-        u = self.neural_networks['u7'].apply(ws['u7'],x) 
+        u = self.neural_networks['u9'].apply(ws['u9'],x) 
 
-        v = ((x[...,0] + 1) * (1 - x[...,0]) * (1 - x[...,1]))[...,None]
+        v = ( (1 - x[...,1]) * (x[...,1] + 1) * (1 - x[...,0]) )[...,None]
         
-        w72 = self.interface72(ws['u27'], x) * ((1 - x[...,1]))[...,None]
-        w75 = self.interface75(ws['u57'], x) * ((1 - x[...,0]) * (x[...,0] + 1))[...,None]
-        w76 = self.interface76(ws['u67'], x) *  (1 - x[...,1]) [...,None]
+        w98 = self.interface98(ws['u89'], x) * ((1 - x[...,1]) * (x[...,1] + 1))[...,None]
+        w96 = self.interface96(ws['u69'], x) * (1 - x[...,0])[...,None]
         
-        w23457  = ws['u23457'] *( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha
-        w567   = ws['u567']    *( (1 - x[...,0]) * (x[...,1] + 1) )[...,None]**alpha
+        w5689  = ws['u5689'] * ( ( x[...,0] + 1 ) * ( x[...,1] + 1 ) )[...,None]**alpha
         
-        w = w72 + w75 + w76 
-        w = w + w23457 + w567
+        w = w98 + w96
+        w = w + w5689
 
         output = u*v + w
         return output 
+
+
+
+
     def loss_pde(self, ws, points):
         grad1 = src.operators.gradient(lambda x : self.solution1(ws,x))(points['ys1'])[...,0,:]
         grad2 = src.operators.gradient(lambda x : self.solution2(ws,x))(points['ys2'])[...,0,:]
@@ -641,6 +680,8 @@ class Model(src.PINN):
         grad5 = src.operators.gradient(lambda x : self.solution5(ws,x))(points['ys5'])[...,0,:]
         grad6 = src.operators.gradient(lambda x : self.solution6(ws,x))(points['ys6'])[...,0,:]
         grad7 = src.operators.gradient(lambda x : self.solution7(ws,x))(points['ys7'])[...,0,:]
+        grad8 = src.operators.gradient(lambda x : self.solution8(ws,x))(points['ys8'])[...,0,:]
+        grad9 = src.operators.gradient(lambda x : self.solution9(ws,x))(points['ys9'])[...,0,:]
         
         lpde1 = 0.5*1/(self.mu0)*jnp.dot(jnp.einsum('mi,mij,mj->m',grad1,points['K1'],grad1), points['ws1'])
 
@@ -654,9 +695,12 @@ class Model(src.PINN):
 
         lpde4 = 0.5*1/(self.mu0*self.mur)*jnp.dot(jnp.einsum('mi,mij,mj->m',grad4,points['K4'],grad4), points['ws4']) 
 
+        lpde8 = 0.5*1/(self.mu0*self.mur)*jnp.dot(jnp.einsum('mi,mij,mj->m',grad8,points['K8'],grad8), points['ws8']) 
+
+        lpde9 = 0.5*1/(self.mu0*self.mur)*jnp.dot(jnp.einsum('mi,mij,mj->m',grad9,points['K9'],grad9), points['ws9']) 
 
         lpde5 = 0.5*1/self.mu0*jnp.dot(jnp.einsum('mi,mij,mj->m',grad5,points['K5'],grad5), points['ws5'])  - jnp.dot(self.J0*self.solution5(ws,points['ys5']).flatten()*points['omega5'], points['ws5'])
-        return lpde1 + lpde2 + lpde3 + lpde4 + lpde5 + lpde6 + lpde7
+        return lpde1 + lpde2 + lpde3 + lpde4 + lpde5 + lpde6 + lpde7 + lpde8 + lpde9
 
 
     def loss(self, ws, pts):
@@ -685,26 +729,9 @@ loss_grad = jax.jit(lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(w
 
 key = jax.random.PRNGKey(1223435)
 points = model.get_points_MC(batch_size, key)                               # Generate the MC samples
-output_7 = model.solution7(params, bnd_samples[2])
-output_6 = model.solution6(params, bnd_samples[3])
-plt.figure()
-plt.plot(output_7, label = 'u76')
-plt.plot(np.flip(output_6), label = 'u67')
-plt.legend()
-plt.savefig('./bnd_67.png')
 
-
-output_5 = model.solution5(params, bnd_samples[2])
-output_6 = model.solution6(params, bnd_samples[2])
-plt.figure()
-plt.plot(output_5, label = 'u56')
-plt.plot(output_6, label = 'u65')
-plt.legend()
-plt.savefig('./bnd_65.png')
-#model.loss_pde(params, points)
-evaluate_error(model, params, evaluate_models7, [0,1,2,3,4,5,6], geoms, meshfile)
+evaluate_error(model, params, evaluate_models, [0,1,2,3,4,5,6,7,8], geoms, meshfile)
 exit()
-
 def step(params, opt_state, key):
     points = model.get_points_MC(batch_size, key)
     loss, grads = loss_grad(params, points)                                 
@@ -731,5 +758,4 @@ print('Elapsed time ', tme)
 save_models(params, './parameters/quad/')
 print('Erfolgreich gespeichert!!')
 
-
-evaluate_error(model, params, evaluate_models7, [0,1,2,3,4,5,6], geoms, meshfile)
+evaluate_error(model, params, evaluate_models, [0,1,2,3,4,5,6,7,8], geoms, meshfile)
