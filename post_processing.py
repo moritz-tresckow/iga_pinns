@@ -174,7 +174,7 @@ def evaluate_error(model, params, evaluation_func, model_idxs, geoms, meshfile):
     #print('The min and max of the reference is: ', vmin, vmax)
 
     vmin = 0
-    vmax = 0.1 
+    vmax = 0.05 
     error = [] 
     plt.figure()
     norm = mpl.colors.Normalize(vmin = vmin, vmax = vmax)
@@ -196,7 +196,7 @@ def evaluate_error(model, params, evaluation_func, model_idxs, geoms, meshfile):
         error.append(np.sum(error_local))
         relative_error_domain = np.sum(error_local)/np.sum(np.abs(uu))
         print('The relative error in domain ', i + 1, ' is ', relative_error_domain*100, ' %')
-        # plt.contourf(xx, yy, sol_model[i], norm = norm, levels = 100)
+        #plt.contourf(xx, yy, sol_model[i], norm = norm, levels = 100)
         plt.contourf(xx, yy, error_local, norm = norm, levels = 100)
         #plt.contourf(xx, yy, uu, norm = norm, levels = 100)
     plt.colorbar(m)

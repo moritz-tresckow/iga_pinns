@@ -104,7 +104,7 @@ def create_geo_II(key):
     l1 = [b2, b2]
     l2 = [b2 + 1.5*dd, b2 + 1.5*dd]
     l3 = [b2 + 4*dd, b2 + 4*dd]
-    l4 = [b2 + 6*dd, b2 + 1.5*dd]
+    l4 = [b2 + 7.5*dd, b2]
     knots_lower = np.array([l4, l3, l2 ,l1])
 
     u1 = [startx, starty]
@@ -196,10 +196,10 @@ def create_geo_III(key):
     dd = 0.01
 
     u1 = [startx + (1.5 + 1.3876)*dd, starty]
-    u2 = [b2 + 6*dd, b2 + 1.5*dd]
+    u2 = [b2 + 7.5*dd, b2]
 
     l1 = [startx + (1.5 + 1.3876)*dd, starty-dd]
-    l2 = [b2 + 6*dd, starty - dd]
+    l2 = [b2 + 7.5*dd, starty - dd]
     knots_upper = np.array([u1, u2])
     knots_lower = np.array([l1, l2])
 
@@ -211,9 +211,9 @@ def create_geo_III(key):
     geom8 = src.geometry.PatchNURBSParam([basisx, basisy], knots8, weights, 0, 2, key)
     
     u1 = [startx + (1.5 + 1.3876)*dd, starty-dd]
-    u2 = [b2 + 6*dd, starty - dd]
+    u2 = [b2 + 7.5*dd, starty - dd]
     l1 = [startx + (1.5 + 1.3876)*dd, 0]
-    l2 = [b2 + 6*dd, 0]
+    l2 = [b2 + 7.5*dd, 0]
     knots_upper = np.array([u2, u1])
     knots_lower = np.array([l2, l1])
 
@@ -229,7 +229,7 @@ def create_geo_III(key):
 
 def mke_geo(rnd_key):  
     geoms, knots = create_geometry_alt(rnd_key)
-    meshfile = './fem_ref/fenicsx_mesh/quad_doms/quad_doms' 
+    meshfile = './fem_ref/fenicsx_mesh/quad_doms/quad_doms_wider_yoke' 
     return geoms, knots, meshfile
 
 geoms, knots, meshfile = mke_geo(rnd_key)
@@ -238,17 +238,19 @@ geom8, knots8 = create_geo_III(rnd_key)
 geoms = geoms + geom4 + geom8
 knots = knots + knots4 + knots8
 
-#bnd_samples = sample_bnd(1000)
+bnd_samples = sample_bnd(1000)
 
-#pts = [i.importance_sampling(1000)[0] for i in geoms]
-#[plt.scatter(i[:,0], i[:,1], s=1) for i in pts]
-#knots_pts = [np.reshape(i, (i.shape[0]*i.shape[1],i.shape[2])) for i in knots]
+pts = [i.importance_sampling(1000)[0] for i in geoms]
+c = ['b', 'b', 'k', 'k', 'y', 'b', 'b', 'k', 'k']
+[plt.scatter(i[:,0], i[:,1], c = j, s = 2) for i,j in zip(pts,c)]
+knots_pts = [np.reshape(i, (i.shape[0]*i.shape[1],i.shape[2])) for i in knots]
 
-#cs = ['r', 'b', 'k', 'y']
-#l = 7
-#[plt.scatter(geoms[l].__call__(i)[:,0], geoms[l].__call__(i)[:,1], c = j, s=5) for i,j in zip(bnd_samples, cs)]
-#[plt.scatter(i[:,0], i[:,1], c = 'r') for i in knots_pts]
-#plt.savefig('doms.png')
+cs = ['r', 'b', 'g', 'y']
+l = 3
+[plt.scatter(geoms[l].__call__(i)[:,0], geoms[l].__call__(i)[:,1], c = j, s=5) for i,j in zip(bnd_samples, cs)]
+[plt.scatter(i[:,0], i[:,1], c = 'r') for i in knots_pts]
+plt.savefig('doms.png')
+
 
 def interface_function2d(nd, endpositive, endzero, nn):
     faux = lambda x: ((x-endzero)**1/(endpositive-endzero)**1)
@@ -273,21 +275,25 @@ class Model(src.PINN):
         super().__init__()
         self.key = rand_key
 
-        nl = 16 
-        nl_bndr = 8 
+        nl = 8 
+        nll = 16
+        nl_bndr = 5 
         load = True 
         load_p =True 
         path = './parameters/quad/'
 
         feat_domain = [2, nl, nl, nl, 1] 
         act_domain = nn.tanh
+
+        feat_domain_more = [2, nll, nll, nll, 1] 
+
         feat_bndr = [1, nl_bndr, nl_bndr, nl_bndr, 1] 
         act_bndr = nn.tanh
 
         self.add_flax_network('u1', feat_domain, act_domain, load, path)
         self.add_flax_network('u2', feat_domain, act_domain, load, path)
-        self.add_flax_network('u3', feat_domain, act_domain, load, path)
-        self.add_flax_network('u4', feat_domain, act_domain, load, path)
+        self.add_flax_network('u3', feat_domain_more, act_domain, load, path)
+        self.add_flax_network('u4', feat_domain_more, act_domain, load, path)
         self.add_flax_network('u5', feat_domain, act_domain, load, path)
         self.add_flax_network('u6', feat_domain, act_domain, load, path)
         self.add_flax_network('u7', feat_domain, act_domain, load, path)
@@ -327,7 +333,7 @@ class Model(src.PINN):
         self.interface45 = interface_function2d(0,1.0,-1.0,self.neural_networks['u45'])
         self.interface54 = interface_function2d(0,1.0,-1.0,self.neural_networks['u45'])
         
-        self.interface48 = interface_function2d(1,-1.0,1.0,self.neural_networks['u48']) 
+        self.interface48 = interface_function2d_inv(1,-1.0,1.0,self.neural_networks['u48']) 
         self.interface84 = interface_function2d(0,1.0,-1.0,self.neural_networks['u48'])
         
         self.interface56 = interface_function2d(0,-1.0,1.0,self.neural_networks['u56'])
@@ -515,7 +521,7 @@ class Model(src.PINN):
         w23457  = ws['u23457'] *( (x[...,0] + 1) * (x[...,1] + 1) )[...,None]**alpha
         w458  = ws['u458'] *( (x[...,0] + 1) * (1 - x[...,1]) )[...,None]**alpha
         
-        w = w43 + w45 + w48
+        w =  w48  + w43 + w45 
         w = w + w23457 + w458
 
         output = u*v + w
@@ -727,11 +733,23 @@ opt_state = opt_init(weights)                                               # In
 params = get_params(opt_state)                                              # Retrieve the trainable weights for the optimizer as a dict
 loss_grad = jax.jit(lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(ws, pts))) # JIT compile the loss function before training
 
+bnd_samples = sample_bnd(1000)
+key = jax.random.PRNGKey(1223435)
+points = model.get_points_MC(batch_size, key)                               # Generate the MC samples
+output_4 = model.solution4(params, bnd_samples[1])
+output_8 = model.solution8(params, bnd_samples[0])
+plt.figure()
+plt.plot(output_4, label = 'u48')
+plt.plot(np.flip(output_8), label = 'u84')
+plt.legend()
+plt.savefig('./bnd_48.png')
+
 key = jax.random.PRNGKey(1223435)
 points = model.get_points_MC(batch_size, key)                               # Generate the MC samples
 
 evaluate_error(model, params, evaluate_models, [0,1,2,3,4,5,6,7,8], geoms, meshfile)
 exit()
+
 def step(params, opt_state, key):
     points = model.get_points_MC(batch_size, key)
     loss, grads = loss_grad(params, points)                                 
