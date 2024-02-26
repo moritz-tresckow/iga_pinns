@@ -1,4 +1,5 @@
 import dolfinx
+import dolfinx.fem.petsc
 import meshio
 from mpi4py import MPI
 import pyvista
@@ -70,7 +71,7 @@ def mk_source(msh, ct, vertices,  source_markers, source_vals):
 def curl2D(v):
     return ufl.as_vector((v.dx(1), v.dx(0)))
 
-def calc_eq(meshfile, mu, js, coordinates = 0):
+def calc_eq(meshfile, mu, js, coordinates):
     msh, ct, msh_l, ct_l= load_mesh(meshfile)
     V = dolfinx.fem.FunctionSpace(msh, ('Lagrange',1))
     vertices = V.tabulate_dof_coordinates() 
@@ -113,7 +114,6 @@ def calc_eq(meshfile, mu, js, coordinates = 0):
     b = j_source*v*ufl.dx
     b = dolfinx.fem.form(b) 
     rhs = dolfinx.fem.petsc.create_vector(b)
-    print(dolfinx.fem.assemble_scalar(dolfinx.fem.form(j_source*ufl.dx)))
     solver = PETSc.KSP().create(msh.comm)
     solver.setOperators(lhs)
     solver.setType(PETSc.KSP.Type.PREONLY)
@@ -132,10 +132,52 @@ def calc_eq(meshfile, mu, js, coordinates = 0):
     print('Maximum', np.amax(uh.x.array))
     print('Calculated something!!')
 
+
     def eval_on_coordinates(uh, domain, boundary, coordinates):
-        bb_tree = dolfinx.geometry.BoundingBoxTree(domain, domain.topology.dim)
+        bb_tree = dolfinx.geometry.bb_tree(domain, domain.topology.dim)
+        cell_candidates = dolfinx.geometry.compute_collisions_points(bb_tree, coordinates) 
+        colliding_cells = dolfinx.geometry.compute_colliding_cells(domain, cell_candidates, coordinates)
+
+        num_entities_local = domain.topology.index_map(2).size_local + domain.topology.index_map(2).num_ghosts
+        entities = np.arange(num_entities_local, dtype = np.int32)
+        mid_tree = dolfinx.geometry.create_midpoint_tree(domain, 2, entities)
+        cells = []
+        for i, point in enumerate(coordinates):
+            try:
+                if len(colliding_cells.links(i))>0:
+                    cells.append(colliding_cells.links(i)[0])
+                else:
+                    cells.append(cell_candidates.links(i)[0])
+            except:
+                print(i, 'Substituting value with clossest colliding entity')
+                ent = dolfinx.geometry.compute_closest_entity(bb_tree, mid_tree, domain, point)
+                cells.append(ent[0])
+        
         coordinates = np.concatenate((coordinates, np.zeros((coordinates.shape[0], 1))), axis = 1)
-        cell_candidates = dolfinx.geometry.compute_collisions(bb_tree, coordinates) 
+        sol = uh.eval(coordinates, cells)
+        return sol
+    print('Evaluating on coordinates...')
+    sol = eval_on_coordinates(uh, msh, ct, coordinates)
+    print(sol.shape)
+    #exit()
+    #np.savetxt('./ref_data.csv', uh.x.array, delimiter = ',', comments = '')
+    return sol
+
+
+
+
+
+
+
+def eval_on_coordinates_old(uh, domain, boundary, coordinates):
+        #bb_tree = dolfinx.geometry.BoundingBoxTree(domain, domain.topology.dim)
+        exit()
+        bb_tree = dolfinx.geometry.BoundingBoxTree(domain)
+        coordinates = np.concatenate((coordinates, np.zeros((coordinates.shape[0], 1))), axis = 1)
+        exit()
+        cell_candidates = dolfinx.geometry.compute_collisions_points(bb_tree, coordinates[0:3,:]) 
+        print(cell_candidates)
+        exit()
         colliding_cells = dolfinx.geometry.compute_colliding_cells(domain, cell_candidates, coordinates)
 
         num_entities_local = domain.topology.index_map(2).size_local + domain.topology.index_map(2).num_ghosts
@@ -155,10 +197,8 @@ def calc_eq(meshfile, mu, js, coordinates = 0):
                 cells.append(ent[0])
         sol = uh.eval(coordinates, cells)
         return sol
-    sol = eval_on_coordinates(uh, msh, msh_l, coordinates)
-    print('succ.')
 
-    return sol 
+
 
 
 def cal_functional(vals, msh):
