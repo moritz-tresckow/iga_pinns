@@ -77,6 +77,11 @@ def calc_eq(meshfile, mu, js, coordinates):
     vertices = V.tabulate_dof_coordinates() 
     #vertices = vertices[:,0:2]
 
+    #boundary_markers = [16] 
+    #dirichlet_vals = [0]	
+    #material_markers = [2,1,3] 
+    #mu0 = mu[0]
+    #mur = mu[1] 
     boundary_markers = [5] 
     dirichlet_vals = [0]	
     material_markers = [1,2,3] 

@@ -721,9 +721,9 @@ weights = model.weights                 # Retrieve weights to initialize the opt
 
 #------------------------------Optimization parameters ------------------------------------#
 opt_type = 'ADAM'                                                         # Optimizer name
-batch_size = 50000                                                          # Number of sample points for quadrature (MC integration) 
-stepsize = 0.0001                                                           # Stepsize for Optimizer aka. learning rate
-n_epochs = 10                                                             # Number of optimization epochs
+batch_size = 20000                                                          # Number of sample points for quadrature (MC integration) 
+stepsize = 0.001                                                           # Stepsize for Optimizer aka. learning rate
+n_epochs = 0                                                             # Number of optimization epochs
 path_coor = './fem_ref/coordinates.csv'                                     # Path to coordinates to evaluate the NN solution
 path_refs = './parameters/quad/mu_2k/ref_values.csv'                        # FEM reference solution
 # meshfile = './fem_ref/fenicsx_mesh/quad_simple/quad_simple' 
@@ -731,18 +731,20 @@ path_refs = './parameters/quad/mu_2k/ref_values.csv'                        # FE
 opt_init, opt_update, get_params = optimizers.adamax(step_size=stepsize)    # Instantiate the optimizer
 opt_state = opt_init(weights)                                               # Initialize the optimizer with the NN weights
 params = get_params(opt_state)                                              # Retrieve the trainable weights for the optimizer as a dict
+print(params['u1'])
+exit()
 loss_grad = jax.jit(lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(ws, pts))) # JIT compile the loss function before training
 
-bnd_samples = sample_bnd(1000)
-key = jax.random.PRNGKey(1223435)
-points = model.get_points_MC(batch_size, key)                               # Generate the MC samples
-output_4 = model.solution4(params, bnd_samples[1])
-output_8 = model.solution8(params, bnd_samples[0])
-plt.figure()
-plt.plot(output_4, label = 'u48')
-plt.plot(np.flip(output_8), label = 'u84')
-plt.legend()
-plt.savefig('./images/bnd_48.png')
+#bnd_samples = sample_bnd(1000)
+#key = jax.random.PRNGKey(1223435)
+#points = model.get_points_MC(batch_size, key)                               # Generate the MC samples
+#output_4 = model.solution4(params, bnd_samples[1])
+#output_8 = model.solution8(params, bnd_samples[0])
+#plt.figure()
+#plt.plot(output_4, label = 'u48')
+#plt.plot(np.flip(output_8), label = 'u84')
+#plt.legend()
+#plt.savefig('./images/bnd_48.png')
 
 key = jax.random.PRNGKey(1223435)
 points = model.get_points_MC(batch_size, key)                               # Generate the MC samples
@@ -762,19 +764,20 @@ step_compiled = jax.jit(step)                                               # JI
 step_compiled(params, opt_state, rnd_key)
 
 tme = datetime.datetime.now()
-
+errors_l2 = []
 
 #------------------------------Optimization Loop-------------------------------------------#
 for k in range(n_epochs):    
     params, opt_state, loss = step_compiled(params, opt_state, jax.random.PRNGKey(np.random.randint(321323)))
     print('Epoch %d/%d - loss value %e'%(k+1, n_epochs, loss))
+    if k % 5 == 0:
+        a = evaluate_error(model, params, evaluate_models, [0,1,2,3,4,5,6,7,8], geoms, meshfile)
+        errors_l2.append(a)
 #------------------------------------------------------------------------------------------#
 
-
+errors_l2 = np.array(errors_l2)
+#np.savetxt('./l2_errors_it2.csv', errors_l2, delimiter = ',', header = 'err_whole, err1, err2, err3, err4, err5, err6, err7, err8, err9', comments = '')
 tme = datetime.datetime.now() - tme
 print('Elapsed time ', tme)
 #save_models(params, './parameters/quad/')
 #print('Erfolgreich gespeichert!!')
-print('Evaluate error')
-exit()
-evaluate_error(model, params, evaluate_models, [0,1,2,3,4,5,6,7,8], geoms, meshfile)
