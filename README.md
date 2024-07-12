@@ -1,1 +1,1 @@
-** Neural subdomain solver for magnetostatic field computations **
+#Neural subdomain solver for magnetostatic field computations
