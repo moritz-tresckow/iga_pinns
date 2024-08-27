@@ -72,6 +72,8 @@ def curl2D(v):
     return ufl.as_vector((v.dx(1), v.dx(0)))
 
 def calc_eq(meshfile, mu, js, coordinates):
+    # Calculating a reference solution for the quadrupole models
+
     msh, ct, msh_l, ct_l= load_mesh(meshfile)
     V = dolfinx.fem.FunctionSpace(msh, ('Lagrange',1))
     vertices = V.tabulate_dof_coordinates() 
@@ -135,7 +137,7 @@ def calc_eq(meshfile, mu, js, coordinates):
 
     print('Minimum', np.amin(uh.x.array))
     print('Maximum', np.amax(uh.x.array))
-    print('Calculated something!!')
+    print('Calculated a solution using FEniCSx -> Interpolating onto coordinates')
 
 
     def eval_on_coordinates(uh, domain, boundary, coordinates):
@@ -161,7 +163,6 @@ def calc_eq(meshfile, mu, js, coordinates):
         coordinates = np.concatenate((coordinates, np.zeros((coordinates.shape[0], 1))), axis = 1)
         sol = uh.eval(coordinates, cells)
         return sol
-    print('Evaluating on coordinates...')
     sol = eval_on_coordinates(uh, msh, ct, coordinates)
     print(sol.shape)
     #exit()

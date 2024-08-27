@@ -12,8 +12,9 @@ import jax.scipy.optimize
 import jax.flatten_util
 import scipy
 import scipy.optimize
-#from helpers import write_data
 from jax.config import config
+
+
 config.update("jax_enable_x64", True)
 rnd_key = jax.random.PRNGKey(1234)
 from mke_geo import *
@@ -45,7 +46,6 @@ def create_geometry_alt(key, scale = 1):
     C = np.linalg.solve(A,b)
     
     knots = np.array([ [ [0,0] , [Dc/2,0] , [Dc,0] ] , [ [ri/np.sqrt(2),ri/np.sqrt(2)] , [C[0,0],C[1,0]] , [Dc,hc] ]])
-    print(knots)
     knots_geom3 = knots
 
     basis1 = src.bspline.BSplineBasisJAX(np.linspace(-1,1,2),1)
@@ -714,16 +714,16 @@ class Model(src.PINN):
         return lpde 
     
 
-rnd_key = jax.random.PRNGKey(1235)
+rnd_key = jax.random.PRNGKey(1235)      # Instantiate random PRNG key
 model = Model(rnd_key)                  # Instantiate PINN model
 w0 = model.init_unravel()               # Instantiate NN weights
 weights = model.weights                 # Retrieve weights to initialize the optimizer 
 
 #------------------------------Optimization parameters ------------------------------------#
-opt_type = 'ADAM'                                                         # Optimizer name
+opt_type = 'ADAM'                                                           # Optimizer name
 batch_size = 20000                                                          # Number of sample points for quadrature (MC integration) 
-stepsize = 0.001                                                           # Stepsize for Optimizer aka. learning rate
-n_epochs = 0                                                             # Number of optimization epochs
+stepsize = 0.001                                                            # Stepsize for Optimizer aka. learning rate
+n_epochs = 100                                                                # Number of optimization epochs
 path_coor = './fem_ref/coordinates.csv'                                     # Path to coordinates to evaluate the NN solution
 path_refs = './parameters/quad/mu_2k/ref_values.csv'                        # FEM reference solution
 # meshfile = './fem_ref/fenicsx_mesh/quad_simple/quad_simple' 
@@ -731,26 +731,15 @@ path_refs = './parameters/quad/mu_2k/ref_values.csv'                        # FE
 opt_init, opt_update, get_params = optimizers.adamax(step_size=stepsize)    # Instantiate the optimizer
 opt_state = opt_init(weights)                                               # Initialize the optimizer with the NN weights
 params = get_params(opt_state)                                              # Retrieve the trainable weights for the optimizer as a dict
-print(params['u1'])
-exit()
 loss_grad = jax.jit(lambda ws, pts: (model.loss(ws, pts), jax.grad(model.loss)(ws, pts))) # JIT compile the loss function before training
-
-#bnd_samples = sample_bnd(1000)
-#key = jax.random.PRNGKey(1223435)
-#points = model.get_points_MC(batch_size, key)                               # Generate the MC samples
-#output_4 = model.solution4(params, bnd_samples[1])
-#output_8 = model.solution8(params, bnd_samples[0])
-#plt.figure()
-#plt.plot(output_4, label = 'u48')
-#plt.plot(np.flip(output_8), label = 'u84')
-#plt.legend()
-#plt.savefig('./images/bnd_48.png')
 
 key = jax.random.PRNGKey(1223435)
 points = model.get_points_MC(batch_size, key)                               # Generate the MC samples
 
 evaluate_error(model, params, evaluate_models, [0,1,2,3,4,5,6,7,8], geoms, meshfile)
-exit()
+
+
+
 
 def step(params, opt_state, key):
     points = model.get_points_MC(batch_size, key)
